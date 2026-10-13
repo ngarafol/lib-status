@@ -122,13 +122,15 @@ async def _async_handle_renew(call: ServiceCall) -> ServiceResponse:
                 {
                     "config_entry_id": entry.entry_id,
                     "title": result.title,
-                    "ok": result.ok,
+                    "submitted": result.submitted,
+                    "confirmed": result.confirmed,
                     "due_on": result.due_on.isoformat() if result.due_on else None,
                     "error": result.error,
                 }
             )
     return {
-        "renewed": sum(1 for result in results if result["ok"]),
-        "failed": sum(1 for result in results if not result["ok"]),
+        "submitted": sum(1 for result in results if result["submitted"]),
+        "confirmed": sum(1 for result in results if result["confirmed"]),
+        "failed": sum(1 for result in results if not result["submitted"]),
         "results": results,
     }

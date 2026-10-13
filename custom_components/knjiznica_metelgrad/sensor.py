@@ -55,11 +55,7 @@ class LoansSensor(KnjiznicaEntity, SensorEntity):
         return {
             "loans": [loan.as_dict(today) for loan in self.loans],
             "renewable_count": sum(1 for loan in self.loans if loan.renewable),
-            "overdue_count": sum(
-                1
-                for loan in self.loans
-                if (days_left := loan.days_until(today)) is not None and days_left < 0
-            ),
+            "overdue_count": sum(1 for loan in self.loans if loan.days_until(today) < 0),
         }
 
 

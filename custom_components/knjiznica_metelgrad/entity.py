@@ -36,5 +36,4 @@ class KnjiznicaEntity(CoordinatorEntity[KnjiznicaCoordinator]):
 
     def nearest_due(self) -> date | None:
         """Najbliži rok vraćanja."""
-        due_dates = [loan.due_on for loan in self.loans if loan.due_on]
-        return min(due_dates) if due_dates else None
+        return min((loan.due_on for loan in self.loans), default=None)

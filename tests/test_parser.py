@@ -33,55 +33,99 @@ def _load_parser() -> ModuleType:
 
 parser = _load_parser()
 
-BASE_URL = "https://library.foi.hr"
+# Snimke stvarnih stranica (izvan gita). Ako ih nema, ti se testovi preskaču.
+RECON = Path(__file__).resolve().parent.parent / "recon"
 
-# SINTETIČKI HTML — nije snimka stvarne stranice. Opisuje oblik koji parser očekuje:
-# tablica posudbi, datum posudbe pa rok vraćanja, i poveznica `page=prod` za produženje.
-SYNTHETIC_PAGE = """
-<html lang="hr"><body>
-  <h2>Moje posudbe</h2>
-  <table class="table table-striped table-hover">
-    <thead>
-      <tr>
-        <th>Naslov</th><th>Autor</th><th>Signatura</th>
-        <th>Datum posudbe</th><th>Rok vraćanja</th><th>Produženje</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><a href="/lib/knjiga.php?B=11&amp;K=0000123">Mali princ</a></td>
-        <td>Saint-Exupéry, Antoine de</td>
-        <td>D-123</td>
-        <td>20.09.2026.</td>
-        <td>18.10.2026.</td>
-        <td><a href="/lib/korisnik.php?page=prod&amp;B=11&amp;H=&amp;N=0000123">Produži</a></td>
-      </tr>
-      <tr>
-        <td><a href="/lib/knjiga.php?B=11&amp;K=0000456">Dnevnik Pauline P.</a></td>
-        <td>Kušec, Sanja</td>
-        <td>D-456</td>
-        <td>1.10.2026.</td>
-        <td>29. 10. 2026.</td>
-        <td><a href="/lib/korisnik.php?page=prod&amp;B=11&amp;H=&amp;N=0000456">Produži</a></td>
-      </tr>
-      <tr>
-        <td>Zagonetni dvorac</td>
-        <td>Bilić, Tea</td>
-        <td>D-789</td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
-      <tr>
-        <td>Bajke za laku noć</td>
-        <td>Nepoznati autor</td>
-        <td>D-999</td>
-        <td></td>
-        <td></td>
-        <td><a href="/lib/korisnik.php?page=prod&amp;B=11&amp;H=&amp;N=0000999">Produži</a></td>
-      </tr>
-    </tbody>
-  </table>
+# SINTETIČKI HTML — nije snimka stvarne stranice, ali prati njen stvarni oblik:
+# posudba je div.col-sm-12 s elementom "Rok vraćanja", naslov je a.knaslink, a
+# autor span.anaso. Naslovi i datumi su izmišljeni.
+CITAM_HTML = """
+<html><body>
+<div class="row">
+  <div class="col-sm-12">
+    <div class="row">
+      <div class="col-sm-2"><div id="gradie">
+        <a href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10001"><img src="1.png"></a>
+      </div></div>
+      <div class="col-sm-10">
+        <div class="row">
+          <div class="col-sm-3"><span class="txx12">10.10.2026</span></div>
+          <div class="col-sm-9"><div class="txx12">Rok vraćanja: 01.11.2026</div></div>
+        </div>
+        <div class="col-sm-12">
+          <div><span class="anaso">Autor, Ante</span></div>
+          <div><a class="knaslink"
+             href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10001&amp;sqlid=11&amp;sqlnivo=&amp;H=">Mali
+             princ</a></div>
+          <div><span class="txx11">Zagreb : Nakladnik, 2017. -</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-12">
+    <div class="row">
+      <div class="col-sm-2"><div id="gradie">
+        <a href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10002"><img src="2.png"></a>
+      </div></div>
+      <div class="col-sm-10">
+        <div class="row">
+          <div class="col-sm-3"><span class="txx12">1.10.2026.</span></div>
+          <div class="col-sm-9"><div class="txx12">Rok vraćanja: 29. 10. 2026.</div></div>
+        </div>
+        <div class="col-sm-12">
+          <div><span class="anaso">Autorica, Ana</span></div>
+          <div><a class="knaslink"
+             href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10002&amp;sqlid=11&amp;sqlnivo=&amp;H=">Dnevnik</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-12">
+    <div class="row"><div class="col-sm-10"><div class="txx12">Bez roka vraćanja</div></div></div>
+  </div>
+</div>
+</body></html>
+"""
+
+PROD_HTML = """
+<html><body>
+<form method="post" name="formo" id="formo"
+      action="https://library.foi.hr/lib/korisnik.php?page=prod">
+  <input type="hidden" name="H" value="">
+  <input type="hidden" name="B" value="11">
+  <input type="hidden" name="zahtjev" value="1">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="row">
+        <div class="col-sm-4 txx10"><strong></strong></div>
+        <div class="col-sm-8 txx10">Rok vraćanja: 01.11.2026.</div>
+      </div>
+      <div class="col-8"><span class="txx10">Autor, Ante</span><br></div>
+      <div class="col-4 txx10">Produlji posudbu
+        <label class="checkbox"><input type="checkbox" name="prod[]" value="MK27317"><span
+          class="success"></span></label>
+      </div>
+      <div class="col-sm-12"><a class="knaslink"
+        href="https://library.foi.hr/lib/knjiga.php?B=11&amp;item=D10001&amp;nivo=%20&amp;H="><b>Mali
+        princ</b></a></div>
+      <div class="col-sm-12"><span class="txx10">Zagreb : Nakladnik, 2017.</span></div>
+    </div>
+    <div class="col-sm-12">
+      <div class="row">
+        <div class="col-sm-4 txx10"><strong></strong></div>
+        <div class="col-sm-8 txx10">Rok vraćanja: 29.10.2026.</div>
+      </div>
+      <div class="col-8"><span class="txx10">Autorica, Ana</span><br></div>
+      <div class="col-4 txx10">Produlji posudbu
+        <label class="checkbox"><input type="checkbox" name="prod[]" value="MK22508"><span
+          class="success"></span></label>
+      </div>
+      <div class="col-sm-12"><a class="knaslink"
+        href="https://library.foi.hr/lib/knjiga.php?B=11&amp;item=D10002&amp;nivo=%20&amp;H="><b>Dnevnik</b></a></div>
+    </div>
+  </div>
+  <input type="submit" name="btnLogin" value=" Pošalji zahtjev za produljenje ">
+</form>
 </body></html>
 """
 
@@ -93,9 +137,7 @@ class ParseDateTest(unittest.TestCase):
     def test_croatian_dates(self) -> None:
         self.assertEqual(parser.parse_date("18.10.2026."), date(2026, 10, 18))
         self.assertEqual(parser.parse_date("5. 3. 2027."), date(2027, 3, 5))
-        self.assertEqual(
-            parser.parse_date("posudba: 1.10.2026., rok 29.10.2026."), date(2026, 10, 1)
-        )
+        self.assertEqual(parser.parse_date("Rok vraćanja: 01.11.2026."), date(2026, 11, 1))
 
     def test_invalid_dates(self) -> None:
         self.assertIsNone(parser.parse_date(""))
@@ -108,66 +150,170 @@ class LoggedOutTest(unittest.TestCase):
         self.assertTrue(parser.is_logged_out(LOGGED_OUT_HTML))
 
     def test_real_page_is_not_logged_out(self) -> None:
-        self.assertFalse(parser.is_logged_out(SYNTHETIC_PAGE))
+        self.assertFalse(parser.is_logged_out(CITAM_HTML))
 
 
 class ParseLoansTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.loans = parser.parse_loans(SYNTHETIC_PAGE, BASE_URL)
+        self.loans = parser.parse_loans(CITAM_HTML)
 
-    def test_only_real_loans_are_kept(self) -> None:
-        # Redak bez datuma i bez produženja ("Zagonetni dvorac") se preskače,
-        # a redak zaglavlja ne završi kao posudba.
-        self.assertEqual(
-            [loan.title for loan in self.loans],
-            ["Mali princ", "Dnevnik Pauline P.", "Bajke za laku noć"],
-        )
+    def test_only_loan_blocks_are_returned(self) -> None:
+        # Unutarnji div.col-sm-12 (autor/naslov) nije zasebna posudba, a blok bez
+        # "Rok vraćanja" se preskače.
+        self.assertEqual([loan.title for loan in self.loans], ["Mali princ", "Dnevnik"])
 
     def test_fields(self) -> None:
         loan = self.loans[0]
-        self.assertEqual(loan.author, "Saint-Exupéry, Antoine de")
-        self.assertEqual(loan.due_on, date(2026, 10, 18))
-        self.assertEqual(
-            loan.renew_url,
-            "https://library.foi.hr/lib/korisnik.php?page=prod&B=11&H=&N=0000123",
-        )
-        self.assertTrue(loan.renewable)
+        self.assertEqual(loan.title, "Mali princ")
+        self.assertEqual(loan.author, "Autor, Ante")
+        self.assertEqual(loan.due_on, date(2026, 11, 1))
+        self.assertEqual(loan.record_key, "D10001")
+        self.assertIsNone(loan.renew_id)
+        self.assertFalse(loan.renewable)
 
-    def test_due_column_not_borrow_column(self) -> None:
-        # 29.10. je rok vraćanja, 01.10. je datum posudbe.
+    def test_due_date_is_not_borrow_date(self) -> None:
+        # 10.10.2026. je datum posudbe, 01.11.2026. rok vraćanja.
+        self.assertEqual(self.loans[0].due_on, date(2026, 11, 1))
         self.assertEqual(self.loans[1].due_on, date(2026, 10, 29))
 
-    def test_loan_without_date_is_kept_if_renewable(self) -> None:
-        loan = self.loans[2]
-        self.assertIsNone(loan.due_on)
-        self.assertTrue(loan.renewable)
-
     def test_empty_page(self) -> None:
-        self.assertEqual(parser.parse_loans("<html><body>Nema posudbi</body></html>", BASE_URL), [])
+        self.assertEqual(parser.parse_loans("<html><body>Nema posudbi</body></html>"), [])
+
+
+class ParseRenewPageTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.page = parser.parse_renew_page(PROD_HTML, "https://library.foi.hr")
+        assert self.page is not None
+
+    def test_form(self) -> None:
+        self.assertEqual(self.page.action, "https://library.foi.hr/lib/korisnik.php?page=prod")
+        self.assertEqual(self.page.checkbox_name, "prod[]")
+        self.assertEqual(self.page.hidden, {"H": "", "B": "11", "zahtjev": "1"})
+        self.assertEqual(self.page.submit, (("btnLogin", " Pošalji zahtjev za produljenje "),))
+
+    def test_options(self) -> None:
+        self.assertEqual(
+            [(option.renew_id, option.title, option.record_key) for option in self.page.options],
+            [("MK27317", "Mali princ", "D10001"), ("MK22508", "Dnevnik", "D10002")],
+        )
+        self.assertEqual(self.page.options[0].due_on, date(2026, 11, 1))
+
+    def test_form_data_for_post(self) -> None:
+        self.assertEqual(
+            self.page.form_data(["MK27317"]),
+            {
+                "H": "",
+                "B": "11",
+                "zahtjev": "1",
+                "prod[]": ["MK27317"],
+                "btnLogin": " Pošalji zahtjev za produljenje ",
+            },
+        )
+
+    def test_page_without_form(self) -> None:
+        self.assertIsNone(parser.parse_renew_page("<html><body>Ništa</body></html>", "https://x"))
+
+
+class MatchRenewOptionsTest(unittest.TestCase):
+    """Uparivanje posudbi s ponuđenim primjercima (bez HTML-a)."""
+
+    def _option(self, renew_id: str, title: str, due_on: date, record_key: str | None):
+        return parser.RenewOption(renew_id, title, due_on, record_key)
+
+    def _page(self, *options) -> parser.RenewPage:
+        return parser.RenewPage(
+            action="https://library.foi.hr/lib/korisnik.php?page=prod",
+            checkbox_name="prod[]",
+            hidden={"B": "11"},
+            submit=(),
+            options=options,
+        )
+
+    def _loan(self, title: str, due_on: date, record_key: str | None, renew_id=None):
+        return parser.Loan(title, None, due_on, record_key, renew_id)
+
+    def test_same_record_key_different_dates(self) -> None:
+        # Isti naslov posuđen dvaput: razlikuje se po roku vraćanja.
+        first = self._option("MK1", "Mali princ", date(2026, 11, 1), "D1")
+        second = self._option("MK2", "Mali princ", date(2026, 12, 1), "D1")
+        page = self._page(first, second)
+
+        loan = self._loan("Mali princ", date(2026, 12, 1), "D1")
+        self.assertEqual(parser.find_option(loan, page).renew_id, "MK2")
+
+    def test_match_by_title_when_no_record_key(self) -> None:
+        page = self._page(self._option("MK9", "Dnevnik", date(2026, 11, 1), None))
+        loan = self._loan("  dnevnik ", date(2026, 11, 1), None)
+        self.assertEqual(parser.find_option(loan, page).renew_id, "MK9")
+
+    def test_no_match(self) -> None:
+        page = self._page(self._option("MK9", "Dnevnik", date(2026, 11, 1), "D9"))
+        self.assertIsNone(parser.find_option(self._loan("Nema me", date(2026, 11, 1), "D7"), page))
+
+    def test_with_renew_ids(self) -> None:
+        page = self._page(
+            self._option("MK1", "Mali princ", date(2026, 11, 1), "D1"),
+            self._option("MK2", "Dnevnik", date(2026, 10, 29), "D2"),
+        )
+        loans = [
+            self._loan("Mali princ", date(2026, 11, 1), "D1"),
+            self._loan("Nema me", date(2026, 11, 1), "D7"),
+        ]
+        linked = parser.with_renew_ids(loans, page)
+        self.assertEqual([loan.renew_id for loan in linked], ["MK1", None])
+        self.assertTrue(linked[0].renewable)
+        self.assertFalse(linked[1].renewable)
+
+    def test_with_renew_ids_without_page(self) -> None:
+        loans = [self._loan("Mali princ", date(2026, 11, 1), "D1", renew_id="MK1")]
+        self.assertEqual([loan.renew_id for loan in parser.with_renew_ids(loans, None)], [None])
 
 
 class LoanTest(unittest.TestCase):
     def test_days_until(self) -> None:
-        loan = parser.Loan("Mali princ", None, date(2026, 10, 18), "https://x")
+        loan = parser.Loan("Mali princ", None, date(2026, 10, 18), "D1")
         self.assertEqual(loan.days_until(date(2026, 10, 13)), 5)
         self.assertEqual(loan.days_until(date(2026, 10, 20)), -2)
 
-    def test_days_until_without_due_date(self) -> None:
-        loan = parser.Loan("Bez roka", None, None, None)
-        self.assertIsNone(loan.days_until(date(2026, 10, 13)))
-
     def test_as_dict_is_serialisable(self) -> None:
-        loan = parser.Loan("Mali princ", "Saint-Exupéry", date(2026, 10, 18), None)
+        loan = parser.Loan("Mali princ", "Autor", date(2026, 10, 18), "D1", "MK1")
         self.assertEqual(
             loan.as_dict(date(2026, 10, 13)),
             {
                 "title": "Mali princ",
-                "author": "Saint-Exupéry",
+                "author": "Autor",
                 "due_on": "2026-10-18",
                 "days_left": 5,
-                "renewable": False,
+                "renewable": True,
             },
         )
+
+
+@unittest.skipUnless((RECON / "citam.html").exists(), "nema snimke u recon/")
+class RealSnapshotTest(unittest.TestCase):
+    """Provjera parsera na stvarnoj snimci (snimka ostaje izvan gita)."""
+
+    def test_real_loan_page_parses(self) -> None:
+        html = (RECON / "citam.html").read_text(encoding="utf-8", errors="replace")
+        loans = parser.parse_loans(html)
+        self.assertGreater(len(loans), 0)
+        self.assertTrue(all(loan.title for loan in loans))
+        self.assertTrue(all(loan.due_on for loan in loans))
+        self.assertTrue(all(loan.record_key for loan in loans))
+        self.assertEqual(len({loan.title for loan in loans}), len(loans))
+
+    @unittest.skipUnless((RECON / "prod.html").exists(), "nema snimke u recon/")
+    def test_real_renew_page_parses(self) -> None:
+        html = (RECON / "prod.html").read_text(encoding="utf-8", errors="replace")
+        page = parser.parse_renew_page(html, "https://library.foi.hr")
+        self.assertIsNotNone(page)
+        assert page is not None
+        citam = parser.parse_loans(
+            (RECON / "citam.html").read_text(encoding="utf-8", errors="replace")
+        )
+        self.assertEqual(len(page.options), len(citam))
+        linked = parser.with_renew_ids(citam, page)
+        self.assertTrue(all(loan.renewable for loan in linked))
 
 
 if __name__ == "__main__":

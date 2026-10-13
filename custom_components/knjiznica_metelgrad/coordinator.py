@@ -24,7 +24,11 @@ class RenewResult:
     """Ishod produženja jedne posudbe."""
 
     title: str
-    ok: bool
+    # Zahtjev je poslan (knjižnica ga je primila).
+    submitted: bool
+    # Rok se stvarno pomaknuo. Produženje na ovoj knjižnici ide kao "zahtjev",
+    # pa se promjena može vidjeti i kasnije.
+    confirmed: bool
     due_on: date | None
     error: str | None = None
 
@@ -57,10 +61,10 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
             raise UpdateFailed(f"Greška pri dohvatu posudbi: {err}") from err
 
     async def async_renew(self, selector: str | None = None) -> list[RenewResult]:
-        """Produži odabrane posudbe i provjeri je li se rok stvarno pomaknuo.
+        """Produži odabrane posudbe i provjeri je li se rok pomaknuo.
 
-        `selector` je dio naslova ili točan URL produženja; bez njega se produžuje
-        sve što stranica nudi kao produživo.
+        `selector` je dio naslova ili točna oznaka primjerka (`MK…`); bez njega se
+        produžuje sve što je knjižnica ponudila kao produživo.
         """
         targets = self._select(selector)
         if not targets:
@@ -73,29 +77,23 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
             except (MetelgradError, aiohttp.ClientError, TimeoutError) as err:
                 errors[loan.title] = str(err)
 
-        # Produženje se potvrđuje tek ako se rok na stranici stvarno promijenio.
         await self.async_refresh()
         current = {loan.title: loan for loan in self.data or []}
 
         results: list[RenewResult] = []
         for loan in targets:
             if error := errors.get(loan.title):
-                results.append(RenewResult(loan.title, False, loan.due_on, error))
+                results.append(RenewResult(loan.title, False, False, loan.due_on, error))
                 continue
-            renewed = current.get(loan.title)
-            if renewed is None:
-                results.append(RenewResult(loan.title, False, None, "Posudba više nije na popisu."))
-            elif renewed.due_on is not None and renewed.due_on != loan.due_on:
-                results.append(RenewResult(loan.title, True, renewed.due_on))
-            else:
-                results.append(
-                    RenewResult(
-                        loan.title,
-                        False,
-                        renewed.due_on,
-                        "Rok se nije promijenio (produženje je vjerojatno odbijeno).",
-                    )
+            due_on = current[loan.title].due_on if loan.title in current else None
+            results.append(
+                RenewResult(
+                    loan.title,
+                    submitted=True,
+                    confirmed=due_on is not None and due_on != loan.due_on,
+                    due_on=due_on,
                 )
+            )
         return results
 
     def _select(self, selector: str | None) -> list[Loan]:
@@ -106,5 +104,5 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
         return [
             loan
             for loan in renewable
-            if query in loan.title.casefold() or query == (loan.renew_url or "")
+            if query in loan.title.casefold() or query == (loan.renew_id or "").casefold()
         ]

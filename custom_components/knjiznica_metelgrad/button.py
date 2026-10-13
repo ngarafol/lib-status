@@ -37,7 +37,7 @@ class RenewAllButton(KnjiznicaEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         results = await self.coordinator.async_renew()
-        failures = [result for result in results if not result.ok]
+        failures = [result for result in results if not result.submitted]
         if failures:
             details = "; ".join(f"{result.title} ({result.error})" for result in failures)
-            raise HomeAssistantError(f"Produženje nije uspjelo za: {details}")
+            raise HomeAssistantError(f"Produženje nije poslano za: {details}")
