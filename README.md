@@ -102,9 +102,23 @@ Gotov blueprint: `blueprints/automation/knjiznica_metelgrad/podsjetnik_rok_vraca
 3. Odaberi senzor posudbi, broj dana prije roka (npr. 3), vrijeme provjere i
    notifikacijsku uslugu (npr. `notify.mobile_app_ana`).
 
-Blueprint svaki dan u zadano vrijeme provjeri je li neka knjiga unutar zadanog
-broja dana od roka i, ako jest, pošalje notifikaciju. Dani se računaju iz
-apsolutnog datuma roka, pa podsjetnik ostaje točan neovisno o intervalu provjere.
+Blueprint svaki dan u zadano vrijeme pogleda rokove i, ako neka knjiga ulazi u
+zadani broj dana do roka, pošalje notifikaciju. Dani se računaju iz apsolutnog
+datuma roka, pa podsjetnik ostaje točan i kad se posudbe provjeravaju jednom
+tjedno.
+
+**Što znači "prozor"?** Prozor je broj dana prije roka koji te zanima. Ako je rok
+1.11. i postaviš 3 dana, prozor se otvara 29.10. Na izbor je što se dogodi dok je
+knjiga u tom prozoru:
+
+| Način | Kada stiže notifikacija | Primjer za rok 1.11. |
+| --- | --- | --- |
+| Ponavljaj svaki dan (zadano) | svaki dan dok je rok unutar prozora | 29.10., 30.10., 31.10., 1.11. |
+| Samo jednom | samo točno zadani broj dana prije roka | 29.10. |
+
+Ponavljanje je korisnije ako ti treba svakodnevni podsjetnik (i preživi dan kad
+HA nije radio); "samo jednom" je mirnije, ali ako HA tog dana ne radi, podsjetnik
+se preskoči.
 
 Bez blueprinta može i ručno — uvjet se računa iz `due_on`, a ne iz senzora
 `dana_do_roka` (taj se osvježava samo pri provjeri knjižnice):
@@ -186,14 +200,18 @@ Notifikacija koja nudi taj gumb:
   `confirmed`, `due_on`, `error`).
 
 Produženje se **nikad ne izvodi automatski**. Gumb na stranici knjižnice zove se
-"Pošalji zahtjev za produljenje", pa integracija razlikuje dva ishoda:
+"Pošalji zahtjev za produljenje", i to je doslovno to: integracija pošalje
+**zahtjev**, a knjižničar ga mora vidjeti i ručno odobriti. Zato razlikujem dva
+ishoda:
 
-- `submitted` — zahtjev je poslan (knjižnica ga je primila),
-- `confirmed` — rok vraćanja se pri sljedećoj provjeri stvarno pomaknuo.
+- `submitted` — zahtjev je poslan knjižnici.
+- `confirmed` — rok vraćanja se pri nekoj od sljedećih provjera stvarno pomaknuo.
 
-Ako je zahtjev poslan ali rok se još nije promijenio, to se **ne** prijavljuje
-kao greška (knjižnica zahtjev može obraditi kasnije ili ga odbiti, npr. zbog
-rezervacije). Greška je samo ako zahtjev nije ni poslan.
+Uobičajen slijed: klikneš "Produži sve", dobiješ `submitted: 1`, a `confirmed`
+postane `true` tek nakon što knjižničar odobri zahtjev (dakle pri sljedećoj
+provjeri, ovisno o intervalu). Ako zahtjev ostane nepotvrđen, to se **ne**
+prijavljuje kao greška — knjižnica ga može obraditi kasnije ili odbiti (npr. ako
+je knjiga rezervirana). Greška je samo ako zahtjev nije ni poslan.
 
 ## Privatnost i sigurnost
 
@@ -222,8 +240,9 @@ rezervacije). Greška je samo ako zahtjev nije ni poslan.
 - Nema 2FA ni CAPTCHA-e u toku prijave (provjereno na stranici prijave).
 - Produženje je *zahtjev*: knjižnica ga može odbiti (npr. ako je knjiga
   rezervirana), pa `confirmed` zna biti `false` i kad je sve prošlo u redu.
-- Službena mobilna aplikacija **metLib** pristupa istim podacima — ako ti njeni
-  podsjetnici budu dovoljni, ova integracija možda nije potrebna.
+- Službena aplikacija **metLib** pristupa istim podacima, ali **ne šalje
+  podsjetnike** na rok vraćanja (provjerio korisnik) — upravo zato postoji ova
+  integracija.
 
 ## Razvoj
 
@@ -244,15 +263,21 @@ Ako u mapi `recon/` postoje snimke stvarnih stranica (`citam.html`,
 ostaju izvan gita.
 
 Integracijski testovi (`tests/test_integration.py`) dižu **pravi Home Assistant**
-i provjeravaju config flow, entitete, servis i gumb. Trebaju Python 3.13:
+i provjeravaju config flow, entitete, više kartica, servis i gumb, a
+`tests/test_blueprint.py` renderira logiku podsjetnika pravim HA template
+engineom. Trebaju Python 3.13:
 
 ```bash
 python3.13 -m venv .venv-ha
 .venv-ha/bin/pip install -r requirements_test.txt
-.venv-ha/bin/pytest tests/test_integration.py
+.venv-ha/bin/pytest tests/
 ```
 
 Bez tog okruženja se ti testovi preskaču, pa `unittest` i dalje radi.
+
+## Licencija
+
+MIT — vidi [LICENSE](LICENSE).
 
 ## Status
 
@@ -263,6 +288,7 @@ Bez tog okruženja se ti testovi preskaču, pa `unittest` i dalje radi.
 | Parser obrasca za produženje (`page=prod`) | provjeren na stvarnoj snimci; uparivanje posudbi s primjercima testirano |
 | Slanje zahtjeva za produženje (POST) | implementirano prema stvarnom obrascu; **zahtjev još nije poslan na server** |
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
-| Prikaz rokova i podsjetnici (blueprint) | implementirano; blueprint nije pokrenut u HA |
-| Testovi | 21 test parsera + 8 HA testova (config flow, entiteti, više kartica, servis, gumb), svi prolaze |
+| Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
+| Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
+| Testovi | 34 testa (21 parser + 8 HA + 5 blueprint), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
