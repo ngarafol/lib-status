@@ -1,11 +1,16 @@
 blueprint:
   name: "Knjižnica Metelgrad: podsjetnik na rok vraćanja"
   description: >-
-    Svaki dan u zadano vrijeme provjeri je li se približio rok vraćanja posuđenih
-    knjiga i pošalji notifikaciju (npr. preko Home Assistant mobilne aplikacije).
-    Dani se računaju iz datuma roka, pa je podsjetnik točan neovisno o intervalu
-    provjere knjižnice. Notifikacija stiže svaki dan dok je knjiga u zadanom
-    prozoru (postavi "Broj dana prije roka" na 1 za samo jedan podsjetnik).
+    Provjerava rokove vraćanja posuđenih knjiga i šalje notifikaciju (npr. preko
+    Home Assistant mobilne aplikacije). Dani se računaju iz datuma roka, pa je
+    podsjetnik točan i kad se posudbe provjeravaju jednom tjedno.
+
+    Način rada biraš s "Ponavljaj svaki dan":
+      - uključeno: podsjetnik svaki dan dok je rok unutar zadanog broja dana
+        (za knjigu koja je posuđena na 3 tjedna i "3 dana prije", to su do 4
+        notifikacije - nezgodno ako zaboraviš vratiti, korisno ako ti treba
+        svaki dan iznova),
+      - isključeno: jedna jedina notifikacija, točno zadani broj dana prije roka.
   domain: automation
   input:
     loans_entity:
@@ -18,6 +23,7 @@ blueprint:
           multiple: false
     days_before:
       name: Broj dana prije roka
+      description: Koliko dana prije roka se šalje podsjetnik.
       default: 3
       selector:
         number:
@@ -25,8 +31,17 @@ blueprint:
           max: 21
           unit_of_measurement: dana
           mode: box
+    repeat_daily:
+      name: Ponavljaj svaki dan
+      description: >-
+        Uključeno: podsjetnik svaki dan dok je rok unutar zadanog broja dana.
+        Isključeno: samo jedan podsjetnik, točno zadani broj dana prije roka.
+      default: true
+      selector:
+        boolean:
     notify_time:
       name: Vrijeme provjere
+      description: U koliko sati se provjerava (svaki dan).
       default: "09:00:00"
       selector:
         time:
@@ -43,15 +58,19 @@ blueprint:
 
 # `variables` su dostupne u uvjetima i radnjama (ali ne u okidačima), zato se
 # provjera radi preko okidača na vrijeme + uvjeta, a ne preko template okidača.
+# `due_window` mora završiti kao popis (ne kao tekst) - HA rezultat predloška
+# pretvara u listu, a tests/test_blueprint.py to provjerava.
 variables:
   loans_entity: !input loans_entity
   days_before: !input days_before
+  repeat_daily: !input repeat_daily
   due_window: >-
     {% set today = now().date().isoformat() %}
     {% set limit = (now() + timedelta(days=days_before)).date().isoformat() %}
+    {% set window_start = today if repeat_daily else limit %}
     {{ (state_attr(loans_entity, 'loans') or [])
        | selectattr('due_on')
-       | selectattr('due_on', 'ge', today)
+       | selectattr('due_on', 'ge', window_start)
        | selectattr('due_on', 'le', limit) | list }}
 
 mode: single
