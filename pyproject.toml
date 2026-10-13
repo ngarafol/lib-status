@@ -1,0 +1,16 @@
+[project]
+name = "knjiznica-metelgrad"
+version = "0.1.0"
+description = "Home Assistant integracija za Knjižnicu Metelgrad (library.foi.hr): posudbe, rokovi vraćanja i produženje"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"custom_components/knjiznica_metelgrad/*.py" = ["RUF012"]  # HA entity _attr_* klasne varijable

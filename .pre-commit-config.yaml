@@ -1,0 +1,31 @@
+# Pre-commit provjere: tajne, formatiranje, YAML/JSON, Python lint.
+# Instalacija: pre-commit install
+repos:
+  - repo: local
+    hooks:
+      # Namjerno lokalni hook (bez mreže): koristi već instalirani gitleaks.
+      - id: gitleaks
+        name: gitleaks (tajne u staged promjenama)
+        entry: gitleaks git --pre-commit --staged --redact --no-banner
+        language: system
+        pass_filenames: false
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: ["--unsafe"] # HA blueprinti koriste !input tagove
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.0
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
