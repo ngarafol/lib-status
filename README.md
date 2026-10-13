@@ -62,7 +62,8 @@ HA config entry (kartica)                       Home Assistant
 
 4. U opcijama integracije podesi interval provjere (zadano 24 h).
 
-> Minimalna verzija: Home Assistant 2025.1.
+> Minimalna verzija: Home Assistant 2024.12 (provjereno da svi korišteni API-ji
+> postoje u toj verziji).
 
 ## Entiteti
 

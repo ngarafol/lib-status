@@ -7,7 +7,7 @@ from typing import Any
 
 import aiohttp
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlowWithReload
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
@@ -101,7 +101,7 @@ class KnjiznicaMetelgradConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 self.hass.config_entries.async_update_entry(entry, data=data)
-                await self.hass.config_entries.async_reload(entry.entry_id)
+                # Reload pokreće update listener u __init__.py.
                 return self.async_abort(reason="reauth_successful")
         return self.async_show_form(
             step_id="reauth_confirm", data_schema=PASSWORD_SCHEMA, errors=errors
@@ -113,13 +113,17 @@ class KnjiznicaMetelgradConfigFlow(ConfigFlow, domain=DOMAIN):
         return KnjiznicaMetelgradOptionsFlow()
 
 
-class KnjiznicaMetelgradOptionsFlow(OptionsFlowWithReload):
-    """Postavke jedne kartice."""
+class KnjiznicaMetelgradOptionsFlow(OptionsFlow):
+    """Postavke jedne kartice.
+
+    Promjena opcija diže update listener u __init__.py, koji reloada integraciju
+    (zamjena za OptionsFlowWithReload, da ne ovisimo o novijim HA verzijama).
+    """
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Interval provjere stranice knjižnice."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(title="", data=user_input)
 
         current = self.config_entry.options.get(
             CONF_SCAN_INTERVAL_HOURS, DEFAULT_SCAN_INTERVAL_HOURS
