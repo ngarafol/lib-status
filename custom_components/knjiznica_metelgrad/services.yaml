@@ -1,0 +1,21 @@
+renew:
+  name: Produži posudbe
+  description: >-
+    Produžuje rok vraćanja za odabrane posudbe (ili za sve produžive posudbe ako
+    nije zadano drugačije). Vraća popis uspješnih i neuspješnih produženja.
+  fields:
+    config_entry_id:
+      name: Kartica
+      description: Kartica na koju se poziv odnosi. Prazno = sve kartice.
+      required: false
+      selector:
+        config_entry:
+          integration: knjiznica_metelgrad
+    loan:
+      name: Posudba
+      description: >-
+        Dio naslova knjige ili točan URL produženja. Prazno = sve produžive
+        posudbe na odabranim karticama.
+      required: false
+      selector:
+        text:
