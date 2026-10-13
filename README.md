@@ -23,17 +23,22 @@ HA config entry (kartica)                       Home Assistant
                │                                │ sensor.*_dana_do_roka          │
       POST /auth/loaut.php  (prijava)           │ button.*_produzi_sve           │
       GET  /lib/korisnik.php?page=citam  ──────▶│ servis knjiznica_metelgrad.renew│
-      GET  .../korisnik.php?page=prod (produži) └────────────────────────────────┘
+      GET  /lib/korisnik.php?page=prod          └────────────────────────────────┘
+      POST /lib/korisnik.php?page=prod  (prod[]=MK…)
 ```
 
 - Prijava: `POST https://library.foi.hr/auth/loaut.php` (polja `username`,
   `password`, `B`, `bookid`, `refURL`, `navo`).
 - Posudbe: `GET https://library.foi.hr/lib/korisnik.php?page=citam&B=11&H=`
-- Produženje: poveznica na `...page=prod...` koju sama stranica nudi za pojedinu
-  posudbu (integracija ne izmišlja parametre).
+  (svaka posudba je `div.col-sm-12` s elementom "Rok vraćanja").
+- Produženje: `GET ...page=prod` daje obrazac (`#formo`) s jednim
+  `checkbox[name="prod[]"]` po primjerku (vrijednost `MK…`) i skrivenim poljima
+  `H`, `B`, `zahtjev`. Produžuje se `POST`-om na isti URL, s oznakom primjerka
+  koji se produžuje. Integracija koristi točno ona polja koja nađe u obrascu.
 - Svaka kartica ima **vlastitu HTTP sesiju i vlastiti cookie jar**: sesijski
   kolačić se zove `korisnik11` i identičan je za sve kartice iste knjižnice, pa
   bi zajednička sesija pomiješala dvije prijavljene kartice.
+- Jedna provjera = dva GET zahtjeva (posudbe + obrazac za produženje).
 
 ## Instalacija (Home Assistant u Dockeru)
 
@@ -135,7 +140,9 @@ automation:
         response_variable: rezultat
       - action: notify.mobile_app_ana
         data:
-          message: "Produženo: {{ rezultat.renewed }}, neuspješno: {{ rezultat.failed }}"
+          message: >-
+            Poslano: {{ rezultat.submitted }}, potvrđeno: {{ rezultat.confirmed }},
+            neuspješno: {{ rezultat.failed }}
 ```
 
 Notifikacija koja nudi taj gumb:
@@ -160,16 +167,22 @@ Notifikacija koja nudi taj gumb:
   action: knjiznica_metelgrad.renew
   data:
     config_entry_id: "..."   # neobavezno; prazno = sve kartice
-    loan: "Mali princ"       # neobavezno; dio naslova ili točan URL produženja
+    loan: "Mali princ"       # neobavezno; dio naslova ili oznaka primjerka (MK…)
   response_variable: rezultat
   ```
 
-  Vraća `renewed`, `failed` i `results` (po knjizi: `ok`, `due_on`, `error`).
+  Vraća `submitted`, `confirmed`, `failed` i `results` (po knjizi: `submitted`,
+  `confirmed`, `due_on`, `error`).
 
-Produženje se **nikad ne izvodi automatski**. Uspjeh se potvrđuje usporedbom
-roka vraćanja prije i poslije produženja — ako se rok nije pomaknuo, prijavljuje
-se kao neuspjeh (knjižnica je vjerojatno odbila produženje, npr. zbog
-rezervacije).
+Produženje se **nikad ne izvodi automatski**. Gumb na stranici knjižnice zove se
+"Pošalji zahtjev za produljenje", pa integracija razlikuje dva ishoda:
+
+- `submitted` — zahtjev je poslan (knjižnica ga je primila),
+- `confirmed` — rok vraćanja se pri sljedećoj provjeri stvarno pomaknuo.
+
+Ako je zahtjev poslan ali rok se još nije promijenio, to se **ne** prijavljuje
+kao greška (knjižnica zahtjev može obraditi kasnije ili ga odbiti, npr. zbog
+rezervacije). Greška je samo ako zahtjev nije ni poslan.
 
 ## Privatnost i sigurnost
 
@@ -190,13 +203,16 @@ rezervacije).
 ## Ograničenja
 
 - Integracija **parsira HTML**; ako knjižnica promijeni izgled stranice, treba
-  prilagoditi `parser.py` (jedno mjesto).
-- Selektori su pisani prema očekivanom obliku Metelwinove tablice posudbi i
-  pokriveni sintetičkim testom; **još nisu potvrđeni na stvarnom HTML-u**
-  prijavljene sesije (vidi *Status*).
+  prilagoditi `parser.py` (jedno mjesto). Selektori su potvrđeni na snimkama
+  stvarnih stranica, a test `RealSnapshotTest` to može ponovno provjeriti na
+  svježoj snimci.
+- Ako knjižnica uvede dodatnu zaštitu obrasca (npr. CSRF token), treba ga
+  prenijeti iz obrasca — trenutno ga nema.
 - Nema 2FA ni CAPTCHA-e u toku prijave (provjereno na stranici prijave).
-- Službena mobilna aplikacija **metLib** također pristupa istim podacima — ako
-  ti njeni podsjetnici budu dovoljni, ova integracija možda nije potrebna.
+- Produženje je *zahtjev*: knjižnica ga može odbiti (npr. ako je knjiga
+  rezervirana), pa `confirmed` zna biti `false` i kad je sve prošlo u redu.
+- Službena mobilna aplikacija **metLib** pristupa istim podacima — ako ti njeni
+  podsjetnici budu dovoljni, ova integracija možda nije potrebna.
 
 ## Razvoj
 
@@ -210,15 +226,18 @@ pre-commit run --all-files
 ```
 
 Testovi ne trebaju Home Assistant: `parser.py` je čisti Python (bez HA i bez
-mreže) i učitava se izravno iz putanje.
+mreže) i učitava se izravno iz putanje. Ako u mapi `recon/` postoje snimke
+stvarnih stranica (`citam.html`, `prod.html`), testovi se pokreću i na njima;
+inače se ti testovi preskaču. Snimke ostaju izvan gita.
 
 ## Status
 
 | Dio | Stanje |
 | --- | --- |
 | Prijava (`loaut.php`) i prepoznavanje neprijavljenog odgovora | provjereno na živoj stranici |
-| Čitanje posudbi i produženje s potvrdom | implementirano, čeka prvi pravi HTML |
-| Parser (`page=citam`) | implementiran prema očekivanom obliku; **nije potvrđen na stvarnom HTML-u** |
-| Senzori, gumb, servis, blueprint | implementirano |
-| Testovi parsera | 12 testova, prolaze |
+| Parser posudbi (`page=citam`) | provjeren na stvarnoj snimci prijavljene stranice |
+| Parser obrasca za produženje (`page=prod`) | provjeren na stvarnoj snimci; uparivanje posudbi s primjercima testirano |
+| Slanje zahtjeva za produženje (POST) | implementirano prema stvarnom obrascu; **zahtjev još nije poslan na server** |
+| Senzori, gumb, servis, blueprint, prijevodi | implementirano |
+| Testovi parsera | 21 test, prolaze (dva se vrte i na stvarnim snimkama) |
 | Provjera na stvarnom Home Assistantu | nije izvedena (nema HA u razvojnom okruženju) |
