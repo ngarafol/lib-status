@@ -4,6 +4,12 @@ version = "0.1.0"
 description = "Home Assistant integracija za Knjižnicu Metelgrad (library.foi.hr): posudbe, rokovi vraćanja i produženje"
 requires-python = ">=3.12"
 
+[tool.pytest.ini_options]
+# Samo za tests/test_integration.py (pytest-homeassistant-custom-component);
+# testovi parsera se vrte i običnim unittestom.
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100

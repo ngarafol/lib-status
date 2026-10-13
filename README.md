@@ -227,6 +227,8 @@ rezervacije). Greška je samo ako zahtjev nije ni poslan.
 
 ## Razvoj
 
+Testovi parsera ne trebaju Home Assistant (samo `beautifulsoup4`):
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install beautifulsoup4 ruff
@@ -236,10 +238,21 @@ python3 -m venv .venv
 pre-commit run --all-files
 ```
 
-Testovi ne trebaju Home Assistant: `parser.py` je čisti Python (bez HA i bez
-mreže) i učitava se izravno iz putanje. Ako u mapi `recon/` postoje snimke
-stvarnih stranica (`citam.html`, `prod.html`), testovi se pokreću i na njima;
-inače se ti testovi preskaču. Snimke ostaju izvan gita.
+`parser.py` je čisti Python (bez HA i bez mreže) i učitava se izravno iz putanje.
+Ako u mapi `recon/` postoje snimke stvarnih stranica (`citam.html`,
+`prod.html`), testovi se pokreću i na njima; inače se ti testovi preskaču. Snimke
+ostaju izvan gita.
+
+Integracijski testovi (`tests/test_integration.py`) dižu **pravi Home Assistant**
+i provjeravaju config flow, entitete, servis i gumb. Trebaju Python 3.13:
+
+```bash
+python3.13 -m venv .venv-ha
+.venv-ha/bin/pip install -r requirements_test.txt
+.venv-ha/bin/pytest tests/test_integration.py
+```
+
+Bez tog okruženja se ti testovi preskaču, pa `unittest` i dalje radi.
 
 ## Status
 
@@ -249,6 +262,7 @@ inače se ti testovi preskaču. Snimke ostaju izvan gita.
 | Parser posudbi (`page=citam`) | provjeren na stvarnoj snimci prijavljene stranice |
 | Parser obrasca za produženje (`page=prod`) | provjeren na stvarnoj snimci; uparivanje posudbi s primjercima testirano |
 | Slanje zahtjeva za produženje (POST) | implementirano prema stvarnom obrascu; **zahtjev još nije poslan na server** |
-| Senzori, gumb, servis, blueprint, prijevodi | implementirano |
-| Testovi parsera | 21 test, prolaze (dva se vrte i na stvarnim snimkama) |
-| Provjera na stvarnom Home Assistantu | nije izvedena (nema HA u razvojnom okruženju) |
+| Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
+| Prikaz rokova i podsjetnici (blueprint) | implementirano; blueprint nije pokrenut u HA |
+| Testovi | 21 test parsera + 8 HA testova (config flow, entiteti, više kartica, servis, gumb), svi prolaze |
+| Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |

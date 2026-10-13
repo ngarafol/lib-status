@@ -24,6 +24,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+# Zaseban venv (Python 3.13) samo za HA testni harness.
+.venv-ha/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
