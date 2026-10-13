@@ -1,0 +1,63 @@
+blueprint:
+  name: "Knjižnica Metelgrad: podsjetnik na rok vraćanja"
+  description: >-
+    Pošalje notifikaciju (npr. preko Home Assistant mobilne aplikacije) kada
+    najbliži rok vraćanja posuđenih knjiga uđe u zadani broj dana. Podsjetnik se
+    računa iz datuma roka, pa ostaje točan neovisno o intervalu provjere
+    knjižnice.
+  domain: automation
+  input:
+    loans_entity:
+      name: Senzor posudbi
+      description: Senzor "Posudbe" integracije Knjižnica Metelgrad.
+      selector:
+        entity:
+          domain: sensor
+          integration: knjiznica_metelgrad
+          multiple: false
+    days_before:
+      name: Broj dana prije roka
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 21
+          unit_of_measurement: dana
+          mode: box
+    notify_service:
+      name: Notifikacijska usluga
+      description: "npr. notify.mobile_app_moj_telefon"
+      selector:
+        text:
+    notify_title:
+      name: Naslov notifikacije
+      default: "📚 Knjižnica: rok vraćanja"
+      selector:
+        text:
+
+variables:
+  loans_entity: !input loans_entity
+  days_before: !input days_before
+  due_window: >-
+    {% set today = now().date().isoformat() %}
+    {% set limit = (now().date() + timedelta(days=days_before)).isoformat() %}
+    {{ (state_attr(loans_entity, 'loans') or [])
+       | selectattr('due_on')
+       | selectattr('due_on', 'ge', today)
+       | selectattr('due_on', 'le', limit) | list }}
+
+mode: single
+
+trigger:
+  - platform: template
+    value_template: "{{ due_window | count > 0 }}"
+
+action:
+  - service: !input notify_service
+    data:
+      title: !input notify_title
+      message: >-
+        {% set titles = due_window | map(attribute='title') | list %}
+        {% set due = due_window | map(attribute='due_on') | list | sort | first %}
+        Bliži se rok vraćanja ({{ due }}): {{ titles | join(', ') }}.
+        Produži u Home Assistantu (gumb "Produži sve") ili na library.foi.hr.
