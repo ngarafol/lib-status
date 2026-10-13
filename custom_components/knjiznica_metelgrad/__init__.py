@@ -90,7 +90,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: KnjiznicaConfigEntry) -
         return False
 
     await entry.runtime_data.session.close()
-    if not hass.config_entries.async_loaded_entries(DOMAIN):
+    # Servis ukloni tek kad ne ostane ni jedna učitana kartica.
+    other_loaded = [
+        other
+        for other in hass.config_entries.async_loaded_entries(DOMAIN)
+        if other.entry_id != entry.entry_id
+    ]
+    if not other_loaded:
         hass.services.async_remove(DOMAIN, SERVICE_RENEW)
     return True
 

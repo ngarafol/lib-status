@@ -21,11 +21,13 @@ class KnjiznicaEntity(CoordinatorEntity[KnjiznicaCoordinator]):
     def __init__(self, coordinator: KnjiznicaCoordinator, entry: ConfigEntry, key: str) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
+        # Naziv uređaja = naziv kartice, da entity_id ostanu kratki i predvidivi
+        # (npr. sensor.ana_posudbe za karticu "Ana").
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=f"Knjižnica Metelgrad ({entry.title})",
+            name=entry.title,
             manufacturer="Metelwin",
-            model="Korisnički račun knjižnice",
+            model="Knjižnica Metelgrad - korisnički račun",
             entry_type=DeviceEntryType.SERVICE,
         )
 
