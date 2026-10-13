@@ -98,26 +98,36 @@ Gotov blueprint: `blueprints/automation/knjiznica_metelgrad/podsjetnik_rok_vraca
 1. Kopiraj datoteku u `config/blueprints/automation/knjiznica_metelgrad/`.
 2. **Postavke → Automatizacije → Novi → Blueprint** → odaberi
    *Knjižnica Metelgrad: podsjetnik na rok vraćanja*.
-3. Odaberi senzor posudbi, broj dana prije roka (npr. 3) i notifikacijsku
-   uslugu (npr. `notify.mobile_app_ana`).
+3. Odaberi senzor posudbi, broj dana prije roka (npr. 3), vrijeme provjere i
+   notifikacijsku uslugu (npr. `notify.mobile_app_ana`).
 
-Blueprint šalje jednu notifikaciju u trenutku kad najbliži rok uđe u zadani
-prozor. Bez blueprints može i ručno:
+Blueprint svaki dan u zadano vrijeme provjeri je li neka knjiga unutar zadanog
+broja dana od roka i, ako jest, pošalje notifikaciju. Dani se računaju iz
+apsolutnog datuma roka, pa podsjetnik ostaje točan neovisno o intervalu provjere.
+
+Bez blueprinta može i ručno — uvjet se računa iz `due_on`, a ne iz senzora
+`dana_do_roka` (taj se osvježava samo pri provjeri knjižnice):
 
 ```yaml
 automation:
-  - alias: "Knjižnica – podsjetnik 3 dana prije roka"
+  - alias: "Knjižnica – podsjetnik na rok vraćanja"
     triggers:
-      - trigger: numeric_state
-        entity_id: sensor.ana_dana_do_roka
-        below: 3
+      - trigger: time
+        at: "09:00:00"
+    conditions:
+      - condition: template
+        value_template: >-
+          {% set today = now().date().isoformat() %}
+          {% set limit = (now() + timedelta(days=3)).date().isoformat() %}
+          {{ state_attr('sensor.ana_posudbe', 'loans')
+             | selectattr('due_on', 'ge', today)
+             | selectattr('due_on', 'le', limit) | list | count > 0 }}
     actions:
       - action: notify.mobile_app_ana
         data:
           title: "📚 Rok vraćanja"
           message: >-
             {{ state_attr('sensor.ana_posudbe', 'loans')
-               | selectattr('due_on', 'ne', None)
                | map(attribute='title') | join(', ') }}
 ```
 

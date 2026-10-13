@@ -1,10 +1,11 @@
 blueprint:
   name: "Knjižnica Metelgrad: podsjetnik na rok vraćanja"
   description: >-
-    Pošalje notifikaciju (npr. preko Home Assistant mobilne aplikacije) kada
-    najbliži rok vraćanja posuđenih knjiga uđe u zadani broj dana. Podsjetnik se
-    računa iz datuma roka, pa ostaje točan neovisno o intervalu provjere
-    knjižnice.
+    Svaki dan u zadano vrijeme provjeri je li se približio rok vraćanja posuđenih
+    knjiga i pošalji notifikaciju (npr. preko Home Assistant mobilne aplikacije).
+    Dani se računaju iz datuma roka, pa je podsjetnik točan neovisno o intervalu
+    provjere knjižnice. Notifikacija stiže svaki dan dok je knjiga u zadanom
+    prozoru (postavi "Broj dana prije roka" na 1 za samo jedan podsjetnik).
   domain: automation
   input:
     loans_entity:
@@ -24,6 +25,11 @@ blueprint:
           max: 21
           unit_of_measurement: dana
           mode: box
+    notify_time:
+      name: Vrijeme provjere
+      default: "09:00:00"
+      selector:
+        time:
     notify_service:
       name: Notifikacijska usluga
       description: "npr. notify.mobile_app_moj_telefon"
@@ -35,12 +41,14 @@ blueprint:
       selector:
         text:
 
+# `variables` su dostupne u uvjetima i radnjama (ali ne u okidačima), zato se
+# provjera radi preko okidača na vrijeme + uvjeta, a ne preko template okidača.
 variables:
   loans_entity: !input loans_entity
   days_before: !input days_before
   due_window: >-
     {% set today = now().date().isoformat() %}
-    {% set limit = (now().date() + timedelta(days=days_before)).isoformat() %}
+    {% set limit = (now() + timedelta(days=days_before)).date().isoformat() %}
     {{ (state_attr(loans_entity, 'loans') or [])
        | selectattr('due_on')
        | selectattr('due_on', 'ge', today)
@@ -48,12 +56,16 @@ variables:
 
 mode: single
 
-trigger:
-  - platform: template
+triggers:
+  - trigger: time
+    at: !input notify_time
+
+conditions:
+  - condition: template
     value_template: "{{ due_window | count > 0 }}"
 
-action:
-  - service: !input notify_service
+actions:
+  - action: !input notify_service
     data:
       title: !input notify_title
       message: >-
