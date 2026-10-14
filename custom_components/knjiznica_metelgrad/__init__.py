@@ -38,11 +38,16 @@ class KnjiznicaRuntimeData:
     """Resursi jedne kartice, vezani na životni vijek config entryja."""
 
     session: aiohttp.ClientSession
-    client: MetelgradClient
     coordinator: KnjiznicaCoordinator
 
 
 KnjiznicaConfigEntry = ConfigEntry[KnjiznicaRuntimeData]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Registriraj servis jednom za cijelu integraciju."""
+    _async_register_services(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: KnjiznicaConfigEntry) -> bool:
@@ -70,12 +75,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: KnjiznicaConfigEntry) ->
         await session.close()
         raise
 
-    entry.runtime_data = KnjiznicaRuntimeData(session, client, coordinator)
+    entry.runtime_data = KnjiznicaRuntimeData(session, coordinator)
     # Promjena opcija (interval provjere) ili podataka (ponovna prijava) reloada
     # integraciju; zamjena za OptionsFlowWithReload iz novijih HA verzija.
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    _async_register_services(hass)
     return True
 
 
@@ -90,21 +94,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: KnjiznicaConfigEntry) -
         return False
 
     await entry.runtime_data.session.close()
-    # Servis ukloni tek kad ne ostane ni jedna učitana kartica.
-    other_loaded = [
-        other
-        for other in hass.config_entries.async_loaded_entries(DOMAIN)
-        if other.entry_id != entry.entry_id
-    ]
-    if not other_loaded:
-        hass.services.async_remove(DOMAIN, SERVICE_RENEW)
     return True
 
 
 def _async_register_services(hass: HomeAssistant) -> None:
-    """Registriraj servis za produženje (jednom za sve kartice)."""
-    if hass.services.has_service(DOMAIN, SERVICE_RENEW):
-        return
+    """Registriraj servis za produženje."""
     hass.services.async_register(
         DOMAIN,
         SERVICE_RENEW,

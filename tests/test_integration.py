@@ -14,10 +14,12 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 try:
+    import pytest
     from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
     from homeassistant.const import STATE_UNAVAILABLE
     from homeassistant.core import HomeAssistant
     from homeassistant.data_entry_flow import FlowResultType
+    from homeassistant.exceptions import ServiceValidationError
     from homeassistant.util import dt as dt_util
     from pytest_homeassistant_custom_component.common import MockConfigEntry
 except ImportError as err:  # pragma: no cover - samo kad HA nije instaliran
@@ -229,4 +231,11 @@ async def test_unload_entry(hass: HomeAssistant) -> None:
     assert entry.state is ConfigEntryState.NOT_LOADED
     # HA zadrži "restored" stanje entiteta, ali ono više nije dostupno.
     assert hass.states.get("sensor.ana_posudbe").state == STATE_UNAVAILABLE
-    assert not hass.services.has_service(DOMAIN, SERVICE_RENEW)
+
+    # Servis ostaje registriran (veže se na integraciju, ne na karticu), ali bez
+    # učitanih kartica javlja grešku umjesto da tiho ne napravi ništa.
+    assert hass.services.has_service(DOMAIN, SERVICE_RENEW)
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_RENEW, {}, blocking=True, return_response=True
+        )
