@@ -42,8 +42,6 @@ USER_SCHEMA = vol.Schema(
     }
 )
 
-PASSWORD_SCHEMA = vol.Schema({vol.Required(CONF_PASSWORD): PASSWORD_SELECTOR})
-
 
 async def async_validate(data: Mapping[str, Any]) -> None:
     """Provjeri podatke stvarnom prijavom, u privremenoj sesiji."""
@@ -110,7 +108,9 @@ class KnjiznicaMetelgradConfigFlow(ConfigFlow, domain=DOMAIN):
                 # Reload pokreće update listener u __init__.py.
                 return self.async_abort(reason="reauth_successful")
         return self.async_show_form(
-            step_id="reauth_confirm", data_schema=PASSWORD_SCHEMA, errors=errors
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): PASSWORD_SELECTOR}),
+            errors=errors,
         )
 
     @staticmethod
