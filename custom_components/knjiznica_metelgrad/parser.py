@@ -10,7 +10,7 @@ Selektori su potvrđeni na snimkama stvarnih stranica (mapa `recon/`, izvan gita
   polja `H`, `B` i `zahtjev`.
 
 Modul je namjerno "glup": čisti HTML -> podatkovni model, bez mreže i bez Home
-Assistant ovisnosti, pa se testira običnim Pythonom (tests/test_parser.py).
+Assistant ovisnosti, pa se testira odvojeno od integracije (tests/test_parser.py).
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any
-from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
@@ -33,8 +32,7 @@ _DATE_RE = re.compile(r"(?<!\d)(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\.?")
 # Oznaka retka "Rok vraćanja: 01.11.2026."
 _DUE_LABEL_RE = re.compile(r"rok\s*vra[cć]anja", re.IGNORECASE)
 
-# Poveznica na zapis knjige; `sqlx` (citam) i `item` (prod) nose isti identifikator.
-_BOOK_LINK_RE = re.compile(r"knjiga\.php")
+# Identifikator zapisa (`sqlx` na citam, `item` na prod) u poveznici na knjigu.
 _RECORD_KEY_RE = re.compile(r"[?&](?:sqlx|item)=([A-Za-z]{0,3}\d+)")
 
 _BLOCK_CLASS = "col-sm-12"
@@ -127,7 +125,7 @@ def parse_loans(html: str) -> list[Loan]:
     return loans
 
 
-def parse_renew_page(html: str, base_url: str) -> RenewPage | None:
+def parse_renew_page(html: str) -> RenewPage | None:
     """Izvuci obrazac za produženje sa stranice `page=prod`."""
     soup = BeautifulSoup(html, "html.parser")
     checkbox = _find_renew_checkbox(soup)
@@ -154,7 +152,7 @@ def parse_renew_page(html: str, base_url: str) -> RenewPage | None:
         )
 
     return RenewPage(
-        action=urljoin(base_url, form.get("action", "")),
+        action=form.get("action", ""),
         checkbox_name=checkbox["name"],
         hidden={
             element["name"]: element.get("value", "")
@@ -252,9 +250,6 @@ def _title_element(block: Tag) -> Tag | None:
     element = block.select_one("a.knaslink")
     if element is not None and element.get_text(strip=True):
         return element
-    for anchor in block.find_all("a", href=True):
-        if _BOOK_LINK_RE.search(anchor["href"]) and anchor.get_text(strip=True):
-            return anchor
     return None
 
 

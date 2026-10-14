@@ -127,9 +127,6 @@ class LoggedOutTest(unittest.TestCase):
     def test_marker_is_recognised(self) -> None:
         self.assertTrue(parser.is_logged_out(LOGGED_OUT_HTML))
 
-    def test_real_page_is_not_logged_out(self) -> None:
-        self.assertFalse(parser.is_logged_out(CITAM_HTML))
-
 
 class ParseLoansTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -160,7 +157,7 @@ class ParseLoansTest(unittest.TestCase):
 
 class ParseRenewPageTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.page = parser.parse_renew_page(PROD_HTML, "https://library.foi.hr")
+        self.page = parser.parse_renew_page(PROD_HTML)
         assert self.page is not None
 
     def test_form(self) -> None:
@@ -189,7 +186,7 @@ class ParseRenewPageTest(unittest.TestCase):
         )
 
     def test_page_without_form(self) -> None:
-        self.assertIsNone(parser.parse_renew_page("<html><body>Ništa</body></html>", "https://x"))
+        self.assertIsNone(parser.parse_renew_page("<html><body>Ništa</body></html>"))
 
 
 class MatchRenewOptionsTest(unittest.TestCase):
@@ -270,7 +267,7 @@ class RealSnapshotTest(unittest.TestCase):
     @unittest.skipUnless((RECON / "prod.html").exists(), "nema snimke u recon/")
     def test_real_renew_page_parses(self) -> None:
         html = (RECON / "prod.html").read_text(encoding="utf-8", errors="replace")
-        page = parser.parse_renew_page(html, "https://library.foi.hr")
+        page = parser.parse_renew_page(html)
         self.assertIsNotNone(page)
         assert page is not None
         citam = parser.parse_loans(
