@@ -73,8 +73,6 @@ variables:
        | selectattr('due_on', 'ge', window_start)
        | selectattr('due_on', 'le', limit) | list }}
 
-mode: single
-
 triggers:
   - trigger: time
     at: !input notify_time

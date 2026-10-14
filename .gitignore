@@ -7,13 +7,6 @@ secrets/
 recon/
 *.local
 
-# Snimke spremljene iz browsera ("Webpage, complete").
-citam.html
-citam_files/
-prod.html
-prod_files/
-*_files/
-
 # --- Home Assistant runtime state ---
 .storage/
 config/
