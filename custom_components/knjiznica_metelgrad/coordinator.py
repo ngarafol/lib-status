@@ -63,8 +63,8 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
     async def async_renew(self, selector: str | None = None) -> list[RenewResult]:
         """Produži odabrane posudbe i provjeri je li se rok pomaknuo.
 
-        `selector` je dio naslova ili točna oznaka primjerka (`MK…`); bez njega se
-        produžuje sve što je knjižnica ponudila kao produživo.
+        `selector` je dio naslova knjige; bez njega se produžuje sve što je
+        knjižnica ponudila kao produživo.
         """
         targets = self._select(selector)
         if not targets:
@@ -101,8 +101,4 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
         if not selector:
             return renewable
         query = selector.strip().casefold()
-        return [
-            loan
-            for loan in renewable
-            if query in loan.title.casefold() or query == (loan.renew_id or "").casefold()
-        ]
+        return [loan for loan in renewable if query in loan.title.casefold()]

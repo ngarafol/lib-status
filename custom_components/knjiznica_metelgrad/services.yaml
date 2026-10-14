@@ -14,8 +14,8 @@ renew:
     loan:
       name: Posudba
       description: >-
-        Dio naslova knjige ili oznaka primjerka (npr. MK27317). Prazno = sve
-        produžive posudbe na odabranim karticama.
+        Dio naslova knjige. Prazno = sve produžive posudbe na odabranim
+        karticama.
       required: false
       selector:
         text:
