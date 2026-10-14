@@ -1,12 +1,6 @@
-# Razvojna okolina: testovi + lint (zahtijeva Python 3.13).
-#   python3.13 -m venv .venv-ha
-#   .venv-ha/bin/pip install -r requirements_test.txt
-#   .venv-ha/bin/pytest tests/
-#   .venv-ha/bin/ruff check . && .venv-ha/bin/ruff format --check .
-#
-# pytest-homeassistant-custom-component povlači točno onu verziju Home Assistanta
-# za koju su testovi pisani. beautifulsoup4 je runtime ovisnost integracije
-# (deklarirana u manifest.json), ali je HA u testnoj okolini ne instalira sam.
+# Razvojna okolina (vidi README, Razvoj): testovi + lint.
+# pytest-homeassistant-custom-component povlači Home Assistant; beautifulsoup4 je
+# runtime ovisnost integracije (manifest.json) koju HA u testovima ne instalira.
 beautifulsoup4>=4.13.0
 pytest-homeassistant-custom-component
 ruff

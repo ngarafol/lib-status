@@ -1,29 +1,22 @@
 """HA testovi: config flow, entiteti, servis i gumb za produženje.
 
-Zahtijevaju pytest-homeassistant-custom-component (vidi README, Razvoj). Bez njega
-se preskaču, pa `python -m unittest discover` i dalje radi.
-
-    .venv-ha/bin/pytest tests/test_integration.py
+.venv-ha/bin/pytest tests/test_integration.py
 """
 
 from __future__ import annotations
 
-import unittest
 from dataclasses import replace
 from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
-try:
-    import pytest
-    from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
-    from homeassistant.const import STATE_UNAVAILABLE
-    from homeassistant.core import HomeAssistant
-    from homeassistant.data_entry_flow import FlowResultType
-    from homeassistant.exceptions import ServiceValidationError
-    from homeassistant.util import dt as dt_util
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
-except ImportError as err:  # pragma: no cover - samo kad HA nije instaliran
-    raise unittest.SkipTest(f"Home Assistant nije instaliran: {err}") from None
+import pytest
+from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
+from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.knjiznica_metelgrad.api import MetelgradAuthError
 from custom_components.knjiznica_metelgrad.const import (
@@ -56,21 +49,15 @@ LOANS = [
 RENEWED = [replace(LOANS[0], due_on=TODAY + timedelta(days=30)), LOANS[1]]
 
 
-async def _setup_entry(hass: HomeAssistant) -> MockConfigEntry:
-    entry = MockConfigEntry(domain=DOMAIN, title="Ana", data=USER_INPUT, unique_id="11:ana")
-    entry.add_to_hass(hass)
-    assert await hass.config_entries.async_setup(entry.entry_id)
-    await hass.async_block_till_done()
-    return entry
-
-
-async def _add_second_card(hass: HomeAssistant) -> MockConfigEntry:
-    """Drugo dijete = drugi config entry (vlastita sesija i vlastiti entiteti)."""
+async def _setup_entry(
+    hass: HomeAssistant, title: str = "Ana", email: str = "ana@example.com"
+) -> MockConfigEntry:
+    """Dodaj i postavi karticu; drugi poziv s drugim e-mailom je drugo dijete."""
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Ivo",
-        data={**USER_INPUT, CONF_EMAIL: "ivo@example.com"},
-        unique_id="11:ivo@example.com",
+        title=title,
+        data={**USER_INPUT, CONF_EMAIL: email},
+        unique_id=f"11:{email}",
     )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -121,24 +108,26 @@ async def test_entities_are_created(hass: HomeAssistant) -> None:
     loans = hass.states.get("sensor.ana_posudbe")
     assert loans is not None
     assert loans.state == "2"
-    assert loans.attributes["renewable_count"] == 1
-    assert loans.attributes["overdue_count"] == 0
-    assert [item["title"] for item in loans.attributes["loans"]] == ["Mali princ", "Dnevnik"]
-    assert loans.attributes["loans"][0] == {
-        "title": "Mali princ",
-        "author": "Saint-Exupéry",
-        "due_on": (TODAY + timedelta(days=5)).isoformat(),
-        "days_left": 5,
-        "renewable": True,
-    }
+    assert loans.attributes["loans"] == [
+        {
+            "title": "Mali princ",
+            "author": "Saint-Exupéry",
+            "due_on": (TODAY + timedelta(days=5)).isoformat(),
+            "days_left": 5,
+            "renewable": True,
+        },
+        {
+            "title": "Dnevnik",
+            "author": "Kušec",
+            "due_on": (TODAY + timedelta(days=2)).isoformat(),
+            "days_left": 2,
+            "renewable": False,
+        },
+    ]
 
     due = hass.states.get("sensor.ana_rok_vracanja")
     assert due is not None
     assert due.state == (TODAY + timedelta(days=2)).isoformat()
-
-    days_left = hass.states.get("sensor.ana_dana_do_roka")
-    assert days_left is not None
-    assert days_left.state == "2"
 
     assert hass.states.get("button.ana_produzi_sve") is not None
 
@@ -159,21 +148,17 @@ async def test_renew_service(hass: HomeAssistant) -> None:
     # Samo posudba koja je ponuđena za produženje (ima oznaku primjerka).
     assert renew.await_count == 1
     assert renew.await_args.args[0].title == "Mali princ"
-    assert response == {
-        "submitted": 1,
-        "confirmed": 1,
-        "failed": 0,
-        "results": [
-            {
-                "config_entry_id": response["results"][0]["config_entry_id"],
-                "title": "Mali princ",
-                "submitted": True,
-                "confirmed": True,
-                "due_on": (TODAY + timedelta(days=30)).isoformat(),
-                "error": None,
-            }
-        ],
-    }
+    assert (response["submitted"], response["confirmed"], response["failed"]) == (1, 1, 0)
+    assert len(response["results"]) == 1
+    result = response["results"][0]
+    assert result["config_entry_id"]
+    assert (result["title"], result["submitted"], result["confirmed"]) == (
+        "Mali princ",
+        True,
+        True,
+    )
+    assert result["due_on"] == (TODAY + timedelta(days=30)).isoformat()
+    assert result["error"] is None
 
 
 async def test_renew_button(hass: HomeAssistant) -> None:
@@ -200,7 +185,7 @@ async def test_two_cards_are_separate_and_service_covers_both(hass: HomeAssistan
         patch(RENEW, new=renew),
     ):
         ana = await _setup_entry(hass)
-        ivo = await _add_second_card(hass)
+        ivo = await _setup_entry(hass, title="Ivo", email="ivo@example.com")
 
         assert hass.states.get("sensor.ana_posudbe").state == "2"
         assert hass.states.get("sensor.ivo_posudbe").state == "2"

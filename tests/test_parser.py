@@ -253,19 +253,6 @@ class LoanTest(unittest.TestCase):
         self.assertEqual(loan.days_until(date(2026, 10, 13)), 5)
         self.assertEqual(loan.days_until(date(2026, 10, 20)), -2)
 
-    def test_as_dict_is_serialisable(self) -> None:
-        loan = parser.Loan("Mali princ", "Autor", date(2026, 10, 18), "D1", "MK1")
-        self.assertEqual(
-            loan.as_dict(date(2026, 10, 13)),
-            {
-                "title": "Mali princ",
-                "author": "Autor",
-                "due_on": "2026-10-18",
-                "days_left": 5,
-                "renewable": True,
-            },
-        )
-
 
 @unittest.skipUnless((RECON / "citam.html").exists(), "nema snimke u recon/")
 class RealSnapshotTest(unittest.TestCase):

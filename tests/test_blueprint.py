@@ -8,18 +8,14 @@ provjerava kada podsjetnik stigne. Pokreće se u HA okruženju:
 
 from __future__ import annotations
 
-import unittest
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-try:
-    import yaml
-    from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.template import Template
-    from homeassistant.util import dt as dt_util
-except ImportError as err:  # pragma: no cover - samo kad HA nije instaliran
-    raise unittest.SkipTest(f"Home Assistant nije instaliran: {err}") from None
+import yaml
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.template import Template
+from homeassistant.util import dt as dt_util
 
 BLUEPRINT = (
     Path(__file__).resolve().parent.parent
