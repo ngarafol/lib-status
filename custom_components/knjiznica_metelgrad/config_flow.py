@@ -25,30 +25,24 @@ from .const import (
     MIN_SCAN_INTERVAL_HOURS,
 )
 
+PASSWORD_SELECTOR = selector.TextSelector(
+    selector.TextSelectorConfig(
+        type=selector.TextSelectorType.PASSWORD, autocomplete="current-password"
+    )
+)
+
 USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_MEMBER_NAME): selector.TextSelector(),
         vol.Required(CONF_EMAIL): selector.TextSelector(
             selector.TextSelectorConfig(type=selector.TextSelectorType.EMAIL, autocomplete="email")
         ),
-        vol.Required(CONF_PASSWORD): selector.TextSelector(
-            selector.TextSelectorConfig(
-                type=selector.TextSelectorType.PASSWORD, autocomplete="current-password"
-            )
-        ),
+        vol.Required(CONF_PASSWORD): PASSWORD_SELECTOR,
         vol.Required(CONF_LIBRARY_ID, default=DEFAULT_LIBRARY_ID): selector.TextSelector(),
     }
 )
 
-PASSWORD_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_PASSWORD): selector.TextSelector(
-            selector.TextSelectorConfig(
-                type=selector.TextSelectorType.PASSWORD, autocomplete="current-password"
-            )
-        )
-    }
-)
+PASSWORD_SCHEMA = vol.Schema({vol.Required(CONF_PASSWORD): PASSWORD_SELECTOR})
 
 
 async def async_validate(data: Mapping[str, Any]) -> None:
