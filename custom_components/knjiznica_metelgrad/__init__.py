@@ -45,8 +45,19 @@ KnjiznicaConfigEntry = ConfigEntry[KnjiznicaRuntimeData]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Registriraj servis jednom za cijelu integraciju."""
-    _async_register_services(hass)
+    """Registriraj servis za produženje, jednom za cijelu integraciju."""
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RENEW,
+        _async_handle_renew,
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
+                vol.Optional(ATTR_LOAN): cv.string,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
     return True
 
 
@@ -95,22 +106,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: KnjiznicaConfigEntry) -
 
     await entry.runtime_data.session.close()
     return True
-
-
-def _async_register_services(hass: HomeAssistant) -> None:
-    """Registriraj servis za produženje."""
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_RENEW,
-        _async_handle_renew,
-        schema=vol.Schema(
-            {
-                vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string,
-                vol.Optional(ATTR_LOAN): cv.string,
-            }
-        ),
-        supports_response=SupportsResponse.OPTIONAL,
-    )
 
 
 async def _async_handle_renew(call: ServiceCall) -> ServiceResponse:
