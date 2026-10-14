@@ -1,7 +1,6 @@
 [tool.pytest.ini_options]
 # Testovi se vrte u HA okruženju (requirements_test.txt).
 asyncio_mode = "auto"
-testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py312"
