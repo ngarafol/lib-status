@@ -30,7 +30,6 @@ async def async_setup_entry(
         [
             LoansSensor(coordinator, entry),
             DueDateSensor(coordinator, entry),
-            DaysLeftSensor(coordinator, entry),
         ]
     )
 
@@ -51,12 +50,7 @@ class LoansSensor(KnjiznicaEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        today = dt_util.now().date()
-        return {
-            "loans": [loan.as_dict(today) for loan in self.loans],
-            "renewable_count": sum(1 for loan in self.loans if loan.renewable),
-            "overdue_count": sum(1 for loan in self.loans if loan.days_until(today) < 0),
-        }
+        return {"loans": [loan.as_dict(dt_util.now().date()) for loan in self.loans]}
 
 
 class DueDateSensor(KnjiznicaEntity, SensorEntity):
@@ -71,23 +65,4 @@ class DueDateSensor(KnjiznicaEntity, SensorEntity):
 
     @property
     def native_value(self) -> date | None:
-        return self.nearest_due()
-
-
-class DaysLeftSensor(KnjiznicaEntity, SensorEntity):
-    """Broj dana do najbližeg roka (negativno = rok je prošao)."""
-
-    _attr_name = "Dana do roka"
-    _attr_native_unit_of_measurement = "d"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_icon = "mdi:calendar-clock"
-
-    def __init__(self, coordinator: KnjiznicaCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "days_left")
-
-    @property
-    def native_value(self) -> int | None:
-        due_on = self.nearest_due()
-        if due_on is None:
-            return None
-        return (due_on - dt_util.now().date()).days
+        return min((loan.due_on for loan in self.loans), default=None)

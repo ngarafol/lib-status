@@ -20,8 +20,8 @@ HA config entry (kartica)                       Home Assistant
 ┌─────────────────────────────┐                 ┌────────────────────────────────┐
 │ e-mail + lozinka + B=11     │                 │ sensor.*_posudbe               │
 └──────────────┬──────────────┘                 │ sensor.*_rok_vracanja          │
-               │                                │ sensor.*_dana_do_roka          │
-      POST /auth/loaut.php  (prijava)           │ button.*_produzi_sve           │
+               │                                │ button.*_produzi_sve           │
+      POST /auth/loaut.php  (prijava)
       GET  /lib/korisnik.php?page=citam  ──────▶│ servis knjiznica_metelgrad.renew│
       GET  /lib/korisnik.php?page=prod          └────────────────────────────────┘
       POST /lib/korisnik.php?page=prod  (prod[]=MK…)
@@ -73,7 +73,6 @@ Za karticu `Ana` (naziv koji upišeš pri dodavanju):
 | --- | --- |
 | `sensor.ana_posudbe` | broj trenutno posuđenih knjiga |
 | `sensor.ana_rok_vracanja` | najbliži rok vraćanja (datum) |
-| `sensor.ana_dana_do_roka` | broj dana do najbližeg roka (negativno = rok je prošao) |
 | `button.ana_produzi_sve` | produžuje sve posudbe koje knjižnica nudi kao produžive |
 
 Senzor `sensor.ana_posudbe` nosi i atribute:
@@ -85,8 +84,6 @@ loans:
     due_on: "2026-10-18"
     days_left: 5
     renewable: true
-renewable_count: 2
-overdue_count: 0
 ```
 
 Za automatizacije koristi `due_on` (apsolutni datum, ne zastarijeva između
@@ -121,7 +118,7 @@ HA nije radio); "samo jednom" je mirnije, ali ako HA tog dana ne radi, podsjetni
 se preskoči.
 
 Ako ti blueprint ne odgovara, uvjet računaj iz `due_on` (apsolutni datum), a ne
-iz senzora `dana_do_roka` — taj se osvježava samo pri provjeri knjižnice, pa uz
+iz atributa `days_left` — taj se osvježava samo pri provjeri knjižnice, pa uz
 rjeđi interval propusti trenutak prelaska praga.
 
 ### Produženje iz notifikacije (akcijski gumb)
@@ -216,8 +213,6 @@ je knjiga rezervirana). Greška je samo ako zahtjev nije ni poslan.
 - Ako knjižnica uvede dodatnu zaštitu obrasca (npr. CSRF token), treba ga
   prenijeti iz obrasca — trenutno ga nema.
 - Nema 2FA ni CAPTCHA-e u toku prijave (provjereno na stranici prijave).
-- Produženje je *zahtjev*: knjižnica ga može odbiti (npr. ako je knjiga
-  rezervirana), pa `confirmed` zna biti `false` i kad je sve prošlo u redu.
 - Službena aplikacija **metLib** pristupa istim podacima, ali **ne šalje
   podsjetnike** na rok vraćanja (provjerio korisnik) — upravo zato postoji ova
   integracija.
@@ -258,5 +253,5 @@ MIT — vidi [LICENSE](LICENSE).
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 34 testa (21 parser + 8 HA + 5 blueprint), svi prolaze |
+| Testovi | 33 testa (20 parser + 8 HA + 5 blueprint), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |

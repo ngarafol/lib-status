@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -35,7 +33,3 @@ class KnjiznicaEntity(CoordinatorEntity[KnjiznicaCoordinator]):
     def loans(self) -> list[Loan]:
         """Trenutne posudbe."""
         return self.coordinator.data or []
-
-    def nearest_due(self) -> date | None:
-        """Najbliži rok vraćanja."""
-        return min((loan.due_on for loan in self.loans), default=None)
