@@ -120,31 +120,9 @@ Ponavljanje je korisnije ako ti treba svakodnevni podsjetnik (i preživi dan kad
 HA nije radio); "samo jednom" je mirnije, ali ako HA tog dana ne radi, podsjetnik
 se preskoči.
 
-Bez blueprinta može i ručno — uvjet se računa iz `due_on`, a ne iz senzora
-`dana_do_roka` (taj se osvježava samo pri provjeri knjižnice):
-
-```yaml
-automation:
-  - alias: "Knjižnica – podsjetnik na rok vraćanja"
-    triggers:
-      - trigger: time
-        at: "09:00:00"
-    conditions:
-      - condition: template
-        value_template: >-
-          {% set today = now().date().isoformat() %}
-          {% set limit = (now() + timedelta(days=3)).date().isoformat() %}
-          {{ state_attr('sensor.ana_posudbe', 'loans')
-             | selectattr('due_on', 'ge', today)
-             | selectattr('due_on', 'le', limit) | list | count > 0 }}
-    actions:
-      - action: notify.mobile_app_ana
-        data:
-          title: "📚 Rok vraćanja"
-          message: >-
-            {{ state_attr('sensor.ana_posudbe', 'loans')
-               | map(attribute='title') | join(', ') }}
-```
+Ako ti blueprint ne odgovara, uvjet računaj iz `due_on` (apsolutni datum), a ne
+iz senzora `dana_do_roka` — taj se osvježava samo pri provjeri knjižnice, pa uz
+rjeđi interval propusti trenutak prelaska praga.
 
 ### Produženje iz notifikacije (akcijski gumb)
 
@@ -246,34 +224,24 @@ je knjiga rezervirana). Greška je samo ako zahtjev nije ni poslan.
 
 ## Razvoj
 
-Testovi parsera ne trebaju Home Assistant (samo `beautifulsoup4`):
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install beautifulsoup4 ruff
-
-.venv/bin/python -m unittest discover -s tests -t .   # testovi parsera
-.venv/bin/ruff check . && .venv/bin/ruff format --check .
-pre-commit run --all-files
-```
-
-`parser.py` je čisti Python (bez HA i bez mreže) i učitava se izravno iz putanje.
-Ako u mapi `recon/` postoje snimke stvarnih stranica (`citam.html`,
-`prod.html`), testovi se pokreću i na njima; inače se ti testovi preskaču. Snimke
-ostaju izvan gita.
-
-Integracijski testovi (`tests/test_integration.py`) dižu **pravi Home Assistant**
-i provjeravaju config flow, entitete, više kartica, servis i gumb, a
-`tests/test_blueprint.py` renderira logiku podsjetnika pravim HA template
-engineom. Trebaju Python 3.13:
+Sve se vrti u jednom okruženju (Python 3.13), jer testovi dižu **pravi Home
+Assistant**:
 
 ```bash
 python3.13 -m venv .venv-ha
 .venv-ha/bin/pip install -r requirements_test.txt
-.venv-ha/bin/pytest tests/
+
+.venv-ha/bin/pytest tests/                        # svi testovi
+.venv-ha/bin/ruff check . && .venv-ha/bin/ruff format --check .
+pre-commit run --all-files
 ```
 
-Bez tog okruženja se ti testovi preskaču, pa `unittest` i dalje radi.
+- `tests/test_parser.py` — parsiranje stranica (sintetički HTML + snimke iz `recon/`)
+- `tests/test_integration.py` — config flow, entiteti, više kartica, servis, gumb
+- `tests/test_blueprint.py` — logika podsjetnika kroz HA template engine
+
+Ako u mapi `recon/` postoje snimke stvarnih stranica (`citam.html`, `prod.html`),
+parser testovi se vrte i na njima; inače se preskaču. Snimke ostaju izvan gita.
 
 ## Licencija
 

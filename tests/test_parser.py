@@ -1,37 +1,15 @@
-"""Testovi parsera — pokreću se običnim Pythonom, bez Home Assistant instalacije.
+"""Testovi parsera.
 
-    python -m unittest discover -s tests -t .
-
-`custom_components/knjiznica_metelgrad/__init__.py` uvozi Home Assistant, pa se zato
-čisti `parser.py` (bez HA i bez mreže) učitava izravno iz putanje.
+.venv-ha/bin/pytest tests/test_parser.py
 """
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import unittest
 from datetime import date
 from pathlib import Path
-from types import ModuleType
 
-
-def _load_parser() -> ModuleType:
-    path = (
-        Path(__file__).resolve().parent.parent
-        / "custom_components"
-        / "knjiznica_metelgrad"
-        / "parser.py"
-    )
-    spec = importlib.util.spec_from_file_location("metelgrad_parser", path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-parser = _load_parser()
+from custom_components.knjiznica_metelgrad import parser
 
 # Snimke stvarnih stranica (izvan gita). Ako ih nema, ti se testovi preskaču.
 RECON = Path(__file__).resolve().parent.parent / "recon"
