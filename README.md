@@ -192,8 +192,8 @@ je knjiga rezervirana). Greška je samo ako zahtjev nije ni poslan.
 
 - Lozinka se sprema **samo u Home Assistant** (config entry u
   `config/.storage/core.config_entries`), nikad u git.
-- `.gitignore` isključuje `.env`, `secrets/`, `config/`, `.storage/` i mapu
-  `recon/` (snimke prijavljenih stranica sadrže osobne podatke).
+- `.gitignore` isključuje `.env`, `secrets/` i mapu `recon/` (snimke
+  prijavljenih stranica sadrže osobne podatke).
 - `pre-commit` s [gitleaks](https://github.com/gitleaks/gitleaks) blokira commit
   ako u promjenama prepozna tajnu. Uključi ga jednom:
 
@@ -253,5 +253,5 @@ MIT — vidi [LICENSE](LICENSE).
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 33 testa (20 parser + 8 HA + 5 blueprint), svi prolaze |
+| Testovi | 32 testa (19 parser + 8 HA + 5 blueprint), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
