@@ -162,9 +162,10 @@ async def test_renew_service(hass: HomeAssistant) -> None:
 
 
 async def test_renew_button(hass: HomeAssistant) -> None:
+    renew = AsyncMock(return_value=None)
     with (
         patch(FETCH, new=AsyncMock(side_effect=[LOANS, RENEWED])),
-        patch(RENEW, new=AsyncMock(return_value=None)),
+        patch(RENEW, new=renew),
     ):
         await _setup_entry(hass)
 
@@ -175,6 +176,8 @@ async def test_renew_button(hass: HomeAssistant) -> None:
             blocking=True,
         )
         await hass.async_block_till_done()
+
+    assert renew.await_count == 1
 
 
 async def test_two_cards_are_separate_and_service_covers_both(hass: HomeAssistant) -> None:

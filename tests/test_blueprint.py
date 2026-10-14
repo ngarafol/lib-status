@@ -38,9 +38,7 @@ def _input_tag(loader: yaml.SafeLoader, node: yaml.Node) -> str:
 
 _Loader.add_constructor("!input", _input_tag)
 
-
-def _blueprint() -> dict[str, Any]:
-    return yaml.load(BLUEPRINT.read_text(encoding="utf-8"), Loader=_Loader)
+BLUEPRINT_DOC: dict[str, Any] = yaml.load(BLUEPRINT.read_text(encoding="utf-8"), Loader=_Loader)
 
 
 def _set_loans(hass: HomeAssistant, *offsets: int) -> None:
@@ -59,7 +57,7 @@ def _set_loans(hass: HomeAssistant, *offsets: int) -> None:
 
 
 def _window(hass: HomeAssistant, days_before: int, repeat_daily: bool) -> Any:
-    return Template(_blueprint()["variables"]["due_window"], hass).async_render(
+    return Template(BLUEPRINT_DOC["variables"]["due_window"], hass).async_render(
         {
             "loans_entity": LOANS_ENTITY,
             "days_before": days_before,
@@ -100,7 +98,7 @@ def test_window_is_empty_without_loans(hass: HomeAssistant) -> None:
 def test_condition_and_message_work_with_the_window(hass: HomeAssistant) -> None:
     """Uvjet i poruka iz blueprinta moraju raditi s istim popisom."""
     _set_loans(hass, 0, 3)
-    blueprint = _blueprint()
+    blueprint = BLUEPRINT_DOC
     variables = {
         "loans_entity": LOANS_ENTITY,
         "days_before": 3,
@@ -118,7 +116,7 @@ def test_condition_and_message_work_with_the_window(hass: HomeAssistant) -> None
 
 
 def test_blueprint_structure_is_sane() -> None:
-    blueprint = _blueprint()
+    blueprint = BLUEPRINT_DOC
     assert blueprint["triggers"][0]["trigger"] == "time"
     assert blueprint["conditions"][0]["condition"] == "template"
     assert set(blueprint["blueprint"]["input"]) == {
