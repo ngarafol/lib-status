@@ -9,7 +9,14 @@ from __future__ import annotations
 
 import aiohttp
 
-from .const import BASE_URL, DEFAULT_LIBRARY_ID, LOANS_PATH, LOGIN_PATH, USER_AGENT
+from .const import (
+    BASE_URL,
+    DEFAULT_LIBRARY_ID,
+    LOANS_PATH,
+    LOGIN_PATH,
+    USER_AGENT,
+    USER_PAGES_URL,
+)
 from .parser import (
     Loan,
     RenewPage,
@@ -47,6 +54,10 @@ class MetelgradClient:
     def _page_url(self, page: str) -> str:
         return f"{BASE_URL}{LOANS_PATH}?page={page}&B={self._library_id}&H="
 
+    def _headers(self, referer: str) -> dict[str, str]:
+        """Zaglavlja zahtjeva; bez Referera knjižnica odgovara s 403."""
+        return {"User-Agent": USER_AGENT, "Referer": referer}
+
     async def async_login(self) -> None:
         """Prijavi se i pusti da sesija zapamti kolačić."""
         data = {
@@ -54,13 +65,13 @@ class MetelgradClient:
             "password": self._password,
             "B": self._library_id,
             "bookid": "",
-            "refURL": f"{BASE_URL}/lib/",
+            "refURL": USER_PAGES_URL,
             "navo": "1",
         }
         async with self._session.post(
             f"{BASE_URL}{LOGIN_PATH}",
             data=data,
-            headers={"User-Agent": USER_AGENT},
+            headers=self._headers(USER_PAGES_URL),
         ) as response:
             response.raise_for_status()
 
@@ -87,7 +98,7 @@ class MetelgradClient:
         async with self._session.post(
             page.action,
             data=page.form_data([option.renew_id]),
-            headers={"User-Agent": USER_AGENT},
+            headers=self._headers(self._page_url("prod")),
             allow_redirects=True,
         ) as response:
             response.raise_for_status()
@@ -110,6 +121,6 @@ class MetelgradClient:
         return html
 
     async def _async_get_text(self, url: str) -> str:
-        async with self._session.get(url, headers={"User-Agent": USER_AGENT}) as response:
+        async with self._session.get(url, headers=self._headers(USER_PAGES_URL)) as response:
             response.raise_for_status()
             return await response.text()

@@ -29,3 +29,7 @@ ATTR_LOAN: Final = "loan"
 
 # Iskren i prepoznatljiv User-Agent za automatizirani pristup.
 USER_AGENT: Final = "HomeAssistant-knjiznica-metelgrad/0.1 (osobna upotreba)"
+
+# Referer koji se šalje uz zahtjeve. Knjižnica odbija POST prijave bez njega
+# (provjereno: isti POST daje 403 bez Referera i 200 s njim).
+USER_PAGES_URL: Final = f"{BASE_URL}/lib/"
