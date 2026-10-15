@@ -28,7 +28,9 @@ HA config entry (kartica)                       Home Assistant
 ```
 
 - Prijava: `POST https://library.foi.hr/auth/loaut.php` (polja `username`,
-  `password`, `B`, `bookid`, `refURL`, `navo`).
+  `password`, `B`, `bookid`, `refURL`, `navo`) **uz `Referer` zaglavlje**: bez
+  njega knjižnica vraća `403`, što je HA prikazivao kao "ne mogu se spojiti".
+  Isto zaglavlje šalje se i na ostale zahtjeve.
 - Posudbe: `GET https://library.foi.hr/lib/korisnik.php?page=citam&B=11&H=`
   (svaka posudba je `div.col-sm-12` s elementom "Rok vraćanja").
 - Produženje: `GET ...page=prod` daje obrazac (`#formo`) s jednim
@@ -234,6 +236,7 @@ pre-commit run --all-files
 - `tests/test_parser.py` — parsiranje stranica (sintetički HTML + snimke iz `recon/`)
 - `tests/test_integration.py` — config flow, entiteti, više kartica, servis, gumb
 - `tests/test_blueprint.py` — logika podsjetnika kroz HA template engine
+- `tests/test_api.py` — HTTP klijent bez mreže (Referer, polja obrasca)
 
 Ako u mapi `recon/` postoje snimke stvarnih stranica (`citam.html`, `prod.html`),
 parser testovi se vrte i na njima; inače se preskaču. Snimke ostaju izvan gita.
@@ -246,12 +249,12 @@ MIT — vidi [LICENSE](LICENSE).
 
 | Dio | Stanje |
 | --- | --- |
-| Prijava (`loaut.php`) i prepoznavanje neprijavljenog odgovora | provjereno na živoj stranici |
+| Prijava (`loaut.php`) i prepoznavanje neprijavljenog odgovora | provjereno na živoj stranici, uključujući obavezni `Referer` |
 | Parser posudbi (`page=citam`) | provjeren na stvarnoj snimci prijavljene stranice |
 | Parser obrasca za produženje (`page=prod`) | provjeren na stvarnoj snimci; uparivanje posudbi s primjercima testirano |
 | Slanje zahtjeva za produženje (POST) | implementirano prema stvarnom obrascu; **zahtjev još nije poslan na server** |
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 32 testa (19 parser + 8 HA + 5 blueprint), svi prolaze |
+| Testovi | 35 testova (19 parser + 8 HA + 5 blueprint + 3 klijent), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
