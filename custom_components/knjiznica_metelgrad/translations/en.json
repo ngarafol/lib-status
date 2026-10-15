@@ -1,0 +1,41 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a library card",
+        "description": "Used only to sign in to library.foi.hr. Stored in Home Assistant, never in git.",
+        "data": {
+          "member_name": "Card name (e.g. the child's name)",
+          "email": "E-mail used for the library login",
+          "password": "Password",
+          "library_id": "Library id (B, e.g. 11)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in again",
+        "description": "The login for library.foi.hr no longer works. Enter the new password for this card.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Wrong e-mail or password (or library id).",
+      "cannot_connect": "Cannot reach library.foi.hr. Check the Home Assistant log for the exact error."
+    },
+    "abort": {
+      "already_configured": "This card is already added.",
+      "reauth_successful": "Sign-in succeeded."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update interval",
+        "data": {
+          "scan_interval_hours": "Check interval (hours)"
+        }
+      }
+    }
+  }
+}

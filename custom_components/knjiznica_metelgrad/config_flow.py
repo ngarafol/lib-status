@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -24,6 +25,8 @@ from .const import (
     MAX_SCAN_INTERVAL_HOURS,
     MIN_SCAN_INTERVAL_HOURS,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 PASSWORD_SELECTOR = selector.TextSelector(
     selector.TextSelectorConfig(
@@ -73,9 +76,11 @@ class KnjiznicaMetelgradConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 await async_validate(user_input)
-            except MetelgradAuthError:
+            except MetelgradAuthError as err:
+                _LOGGER.error("Prijava na library.foi.hr nije uspjela: %s", err)
                 errors["base"] = "invalid_auth"
-            except (aiohttp.ClientError, TimeoutError, MetelgradError):
+            except (aiohttp.ClientError, TimeoutError, MetelgradError) as err:
+                _LOGGER.error("Spoj na library.foi.hr nije uspio: %s", err)
                 errors["base"] = "cannot_connect"
             else:
                 await self.async_set_unique_id(_unique_id(user_input))
@@ -99,9 +104,11 @@ class KnjiznicaMetelgradConfigFlow(ConfigFlow, domain=DOMAIN):
             data = {**entry.data, CONF_PASSWORD: user_input[CONF_PASSWORD]}
             try:
                 await async_validate(data)
-            except MetelgradAuthError:
+            except MetelgradAuthError as err:
+                _LOGGER.error("Ponovna prijava nije uspjela: %s", err)
                 errors["base"] = "invalid_auth"
-            except (aiohttp.ClientError, TimeoutError, MetelgradError):
+            except (aiohttp.ClientError, TimeoutError, MetelgradError) as err:
+                _LOGGER.error("Spoj na library.foi.hr nije uspio: %s", err)
                 errors["base"] = "cannot_connect"
             else:
                 self.hass.config_entries.async_update_entry(entry, data=data)
