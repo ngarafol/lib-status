@@ -75,7 +75,23 @@ Za karticu `Ana` (naziv koji upišeš pri dodavanju):
 | --- | --- |
 | `sensor.ana_posudbe` | broj trenutno posuđenih knjiga |
 | `sensor.ana_rok_vracanja` | najbliži rok vraćanja (datum) |
+| `button.ana_produzi_<knjiga>` | produžuje **samo tu** knjigu (po jedan gumb za svaku produživu posudbu) |
 | `button.ana_produzi_sve` | produžuje sve posudbe koje knjižnica nudi kao produžive |
+
+Gumbi po knjizi nastaju i nestaju sami: kad knjižnica neku posudbu prestane
+nuditi za produženje (vraćena knjiga), njen gumb se ukloni i iz sučelja i iz
+registra entiteta. Svaki gumb nosi i `due_on`/`days_left` kao atribute, pa se
+datum vidi na klik (više informacija).
+
+Za dashboard, kartica s gumbima po knjizi:
+
+```yaml
+type: entities
+title: Posudbe – Ana
+entities:
+  - button.ana_produzi_mali_princ
+  - button.ana_produzi_dnevnik
+```
 
 Senzor `sensor.ana_posudbe` nosi i atribute:
 
@@ -162,14 +178,19 @@ Notifikacija koja nudi taj gumb:
 
 ## Produženje
 
-- **Gumb** `button.ana_produzi_sve` — produžuje sve što stranica nudi.
+Tri načina, svi šalju isti zahtjev knjižnici (koji knjižničar odobrava ručno):
+
+- **Gumb po knjizi** `button.ana_produzi_<knjiga>` — produžuje samo tu posudbu.
+  To je najbliže onome što radiš na stranici knjižnice: knjigu po knjigu.
+- **Gumb** `button.ana_produzi_sve` — jedan zahtjev sa **svim** primjercima koje
+  knjižnica nudi za produženje (sve knjige odjednom).
 - **Servis** `knjiznica_metelgrad.renew`:
 
   ```yaml
   action: knjiznica_metelgrad.renew
   data:
     config_entry_id: "..."   # neobavezno; prazno = sve kartice
-    loan: "Mali princ"       # neobavezno; dio naslova ili oznaka primjerka (MK…)
+    loan: "Mali princ"       # neobavezno; dio naslova knjige
   response_variable: rezultat
   ```
 
@@ -256,5 +277,5 @@ MIT — vidi [LICENSE](LICENSE).
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 35 testova (19 parser + 8 HA + 5 blueprint + 3 klijent), svi prolaze |
+| Testovi | 38 testova (19 parser + 11 HA + 5 blueprint + 3 klijent), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
