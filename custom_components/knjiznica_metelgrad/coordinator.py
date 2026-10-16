@@ -61,17 +61,19 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
             raise UpdateFailed(f"Greška pri dohvatu posudbi: {err}") from err
 
     async def async_renew(self, selector: str | None = None) -> list[RenewResult]:
-        """Produži odabrane posudbe i provjeri je li se rok pomaknuo.
+        """Produži posudbe odabrane po dijelu naslova (ulaz za servis).
 
-        `selector` je dio naslova knjige; bez njega se produžuje sve što je
-        knjižnica ponudila kao produživo.
+        Bez `selector`-a produžuje se sve što je knjižnica ponudila kao produživo.
         """
-        targets = self._select(selector)
-        if not targets:
+        return await self.async_renew_loans(self._select(selector))
+
+    async def async_renew_loans(self, loans: list[Loan]) -> list[RenewResult]:
+        """Produži točno ove posudbe (npr. jednu, preko njenog gumba)."""
+        if not loans:
             return []
 
         errors: dict[str, str] = {}
-        for loan in targets:
+        for loan in loans:
             try:
                 await self.client.async_renew(loan)
             except (MetelgradError, aiohttp.ClientError, TimeoutError) as err:
@@ -81,7 +83,7 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
         current = {loan.title: loan for loan in self.data or []}
 
         results: list[RenewResult] = []
-        for loan in targets:
+        for loan in loans:
             if error := errors.get(loan.title):
                 results.append(RenewResult(loan.title, False, False, loan.due_on, error))
                 continue
