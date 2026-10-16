@@ -8,6 +8,6 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/ngarafol/knjiznica-status/issues",
   "requirements": ["beautifulsoup4>=4.13.0"],
-  "version": "0.1.0",
+  "version": "0.1.2",
   "homeassistant": "2024.12.0"
 }
