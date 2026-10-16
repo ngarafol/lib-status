@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -15,6 +15,7 @@ from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers import entity_registry
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -33,20 +34,33 @@ FETCH = "custom_components.knjiznica_metelgrad.api.MetelgradClient.async_fetch_l
 RENEW = "custom_components.knjiznica_metelgrad.api.MetelgradClient.async_renew"
 VALIDATE = "custom_components.knjiznica_metelgrad.config_flow.async_validate"
 
+
+def _today() -> date:
+    """Današnji datum u zoni Home Assistanta (u testovima je to zona harnessa)."""
+    return dt_util.now().date()
+
+
+def _loans() -> list[Loan]:
+    """Jedna produživa posudba (ima oznaku primjerka) i jedna koja to nije."""
+    today = _today()
+    return [
+        Loan("Mali princ", "Saint-Exupéry", today + timedelta(days=5), "D1", "MK1"),
+        Loan("Dnevnik", "Kušec", today + timedelta(days=2), "D2", None),
+    ]
+
+
+def _renewed() -> list[Loan]:
+    """Iste posudbe nakon produženja (rok pomaknut 30 dana)."""
+    loan, other = _loans()
+    return [replace(loan, due_on=_today() + timedelta(days=30)), other]
+
+
 USER_INPUT = {
     CONF_MEMBER_NAME: "Ana",
     CONF_EMAIL: "ana@example.com",
     CONF_PASSWORD: "tajna",
     CONF_LIBRARY_ID: "11",
 }
-
-TODAY = dt_util.now().date()
-# Jedna produživa (ima oznaku primjerka) i jedna koja nije na popisu za produženje.
-LOANS = [
-    Loan("Mali princ", "Saint-Exupéry", TODAY + timedelta(days=5), "D1", "MK1"),
-    Loan("Dnevnik", "Kušec", TODAY + timedelta(days=2), "D2", None),
-]
-RENEWED = [replace(LOANS[0], due_on=TODAY + timedelta(days=30)), LOANS[1]]
 
 
 async def _setup_entry(
@@ -81,7 +95,7 @@ async def test_config_flow_shows_form(hass: HomeAssistant) -> None:
 async def test_config_flow_creates_entry(hass: HomeAssistant) -> None:
     with (
         patch(VALIDATE, new=AsyncMock(return_value=None)),
-        patch(FETCH, new=AsyncMock(return_value=LOANS)),
+        patch(FETCH, new=AsyncMock(return_value=_loans())),
     ):
         result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
         result = await hass.config_entries.flow.async_configure(result["flow_id"], USER_INPUT)
@@ -102,7 +116,7 @@ async def test_bad_credentials_show_error(hass: HomeAssistant) -> None:
 
 
 async def test_entities_are_created(hass: HomeAssistant) -> None:
-    with patch(FETCH, new=AsyncMock(return_value=LOANS)):
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
         await _setup_entry(hass)
 
     loans = hass.states.get("sensor.ana_posudbe")
@@ -112,14 +126,14 @@ async def test_entities_are_created(hass: HomeAssistant) -> None:
         {
             "title": "Mali princ",
             "author": "Saint-Exupéry",
-            "due_on": (TODAY + timedelta(days=5)).isoformat(),
+            "due_on": (_today() + timedelta(days=5)).isoformat(),
             "days_left": 5,
             "renewable": True,
         },
         {
             "title": "Dnevnik",
             "author": "Kušec",
-            "due_on": (TODAY + timedelta(days=2)).isoformat(),
+            "due_on": (_today() + timedelta(days=2)).isoformat(),
             "days_left": 2,
             "renewable": False,
         },
@@ -127,7 +141,7 @@ async def test_entities_are_created(hass: HomeAssistant) -> None:
 
     due = hass.states.get("sensor.ana_rok_vracanja")
     assert due is not None
-    assert due.state == (TODAY + timedelta(days=2)).isoformat()
+    assert due.state == (_today() + timedelta(days=2)).isoformat()
 
     assert hass.states.get("button.ana_produzi_sve") is not None
 
@@ -135,7 +149,7 @@ async def test_entities_are_created(hass: HomeAssistant) -> None:
 async def test_renew_service(hass: HomeAssistant) -> None:
     renew = AsyncMock(return_value=None)
     with (
-        patch(FETCH, new=AsyncMock(side_effect=[LOANS, RENEWED])),
+        patch(FETCH, new=AsyncMock(side_effect=[_loans(), _renewed()])),
         patch(RENEW, new=renew),
     ):
         await _setup_entry(hass)
@@ -157,14 +171,14 @@ async def test_renew_service(hass: HomeAssistant) -> None:
         True,
         True,
     )
-    assert result["due_on"] == (TODAY + timedelta(days=30)).isoformat()
+    assert result["due_on"] == (_today() + timedelta(days=30)).isoformat()
     assert result["error"] is None
 
 
 async def test_renew_button(hass: HomeAssistant) -> None:
     renew = AsyncMock(return_value=None)
     with (
-        patch(FETCH, new=AsyncMock(side_effect=[LOANS, RENEWED])),
+        patch(FETCH, new=AsyncMock(side_effect=[_loans(), _renewed()])),
         patch(RENEW, new=renew),
     ):
         await _setup_entry(hass)
@@ -180,11 +194,60 @@ async def test_renew_button(hass: HomeAssistant) -> None:
     assert renew.await_count == 1
 
 
+async def test_button_for_each_renewable_loan(hass: HomeAssistant) -> None:
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
+        await _setup_entry(hass)
+
+    # Gumb po knjizi nosi naslov knjige; "Dnevnik" nije ponuđen za produženje.
+    assert hass.states.get("button.ana_produzi_mali_princ") is not None
+    assert hass.states.get("button.ana_produzi_dnevnik") is None
+    assert hass.states.get("button.ana_produzi_sve") is not None
+
+
+async def test_loan_button_renews_only_that_loan(hass: HomeAssistant) -> None:
+    renew = AsyncMock(return_value=None)
+    with (
+        patch(FETCH, new=AsyncMock(side_effect=[_loans(), _renewed()])),
+        patch(RENEW, new=renew),
+    ):
+        await _setup_entry(hass)
+
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.ana_produzi_mali_princ"},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    assert renew.await_count == 1
+    assert renew.await_args.args[0].title == "Mali princ"
+    assert (
+        hass.states.get("button.ana_produzi_mali_princ").attributes["due_on"]
+        == (_today() + timedelta(days=30)).isoformat()
+    )
+
+
+async def test_loan_button_is_removed_when_not_renewable(hass: HomeAssistant) -> None:
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
+        entry = await _setup_entry(hass)
+    assert hass.states.get("button.ana_produzi_mali_princ") is not None
+
+    # Knjižnica više ne nudi tu posudbu za produženje.
+    coordinator = entry.runtime_data.coordinator
+    coordinator.async_set_updated_data([replace(_loans()[0], renew_id=None), _loans()[1]])
+    await hass.async_block_till_done()
+
+    # Entitet je uklonjen iz registra (HA zadrži samo "restored" stanje).
+    assert entity_registry.async_get(hass).async_get("button.ana_produzi_mali_princ") is None
+    assert hass.states.get("button.ana_produzi_sve") is not None
+
+
 async def test_two_cards_are_separate_and_service_covers_both(hass: HomeAssistant) -> None:
     """Više kartica: svaka ima svoje entitete, a servis bez odabira radi na svima."""
     renew = AsyncMock(return_value=None)
     with (
-        patch(FETCH, new=AsyncMock(side_effect=[LOANS, LOANS, RENEWED, RENEWED])),
+        patch(FETCH, new=AsyncMock(side_effect=[_loans(), _loans(), _renewed(), _renewed()])),
         patch(RENEW, new=renew),
     ):
         ana = await _setup_entry(hass)
@@ -209,7 +272,7 @@ async def test_two_cards_are_separate_and_service_covers_both(hass: HomeAssistan
 
 
 async def test_unload_entry(hass: HomeAssistant) -> None:
-    with patch(FETCH, new=AsyncMock(return_value=LOANS)):
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
         entry = await _setup_entry(hass)
 
     assert hass.states.get("sensor.ana_posudbe").state == "2"
