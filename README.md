@@ -257,6 +257,20 @@ python3.13 -m venv .venv-ha
 pre-commit run --all-files
 ```
 
+Objava: podigni `version` u `manifest.json`, pa tag s porukom i push:
+
+```bash
+git tag -a v0.1.4 -m "v0.1.4
+
+Što se mijenja..."
+git push origin main --follow-tags
+```
+
+Workflow [`.github/workflows/release.yml`](.github/workflows/release.yml) sam
+napravi GitHub release iz poruke taga (novi tag = novi release). Ako se verzija u
+manifestu i u tagu ne poklapaju, run ispiše upozorenje — HACS prikazuje verziju
+iz manifesta.
+
 - `tests/test_parser.py` — parsiranje stranica (sintetički HTML + snimke iz `recon/`)
 - `tests/test_integration.py` — config flow, entiteti, više kartica, servis, gumb
 - `tests/test_blueprint.py` — logika podsjetnika kroz HA template engine
