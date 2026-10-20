@@ -35,8 +35,11 @@ HA config entry (kartica)                       Home Assistant
   (svaka posudba je `div.col-sm-12` s elementom "Rok vraćanja").
 - Produženje: `GET ...page=prod` daje obrazac (`#formo`) s jednim
   `checkbox[name="prod[]"]` po primjerku (vrijednost `MK…`) i skrivenim poljima
-  `H`, `B`, `zahtjev`. Produžuje se `POST`-om na isti URL, s oznakom primjerka
-  koji se produžuje. Integracija koristi točno ona polja koja nađe u obrascu.
+  `H`, `B`, `zahtjev`. Produžuje se `POST`-om na akciju obrasca, s oznakom
+  primjerka koji se produžuje. Akcija je na živoj stranici **relativna**
+  (`korisnik.php?page=prod`) i razrješava se prema URL-u stranice — u
+  spremljenoj snimci izgleda apsolutno jer ju browser prepiše pri spremanju.
+  Integracija koristi točno ona polja koja nađe u obrascu.
 - Svaka kartica ima **vlastitu HTTP sesiju i vlastiti cookie jar**: sesijski
   kolačić se zove `korisnik11` i identičan je za sve kartice iste knjižnice, pa
   bi zajednička sesija pomiješala dvije prijavljene kartice.
@@ -273,7 +276,7 @@ MIT — vidi [LICENSE](LICENSE).
 | Prijava (`loaut.php`) i prepoznavanje neprijavljenog odgovora | provjereno na živoj stranici, uključujući obavezni `Referer` |
 | Parser posudbi (`page=citam`) | provjeren na stvarnoj snimci prijavljene stranice |
 | Parser obrasca za produženje (`page=prod`) | provjeren na stvarnoj snimci; uparivanje posudbi s primjercima testirano |
-| Slanje zahtjeva za produženje (POST) | implementirano prema stvarnom obrascu; **zahtjev još nije poslan na server** |
+| Slanje zahtjeva za produženje (POST) | prvi pravi zahtjev pokušan iz HA: pao je zbog relativne akcije obrasca, ispravljeno i pokriveno testom; **uspješan zahtjev još nije potvrđen** |
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
