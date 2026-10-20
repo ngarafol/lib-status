@@ -14,6 +14,9 @@ from custom_components.knjiznica_metelgrad import parser
 # Snimke stvarnih stranica (izvan gita). Ako ih nema, ti se testovi preskaču.
 RECON = Path(__file__).resolve().parent.parent / "recon"
 
+# URL same stranice: akcija obrasca u HTML-u je relativna.
+PAGE_URL = "https://library.foi.hr/lib/korisnik.php?page=prod&B=11&H="
+
 # SINTETIČKI HTML — nije snimka stvarne stranice, ali prati njen stvarni oblik:
 # posudba je div.col-sm-12 s elementom "Rok vraćanja", naslov je a.knaslink, a
 # autor span.anaso. Naslovi i datumi su izmišljeni.
@@ -68,7 +71,7 @@ CITAM_HTML = """
 PROD_HTML = """
 <html><body>
 <form method="post" name="formo" id="formo"
-      action="https://library.foi.hr/lib/korisnik.php?page=prod">
+      action="korisnik.php?page=prod">
   <input type="hidden" name="H" value="">
   <input type="hidden" name="B" value="11">
   <input type="hidden" name="zahtjev" value="1">
@@ -157,7 +160,7 @@ class ParseLoansTest(unittest.TestCase):
 
 class ParseRenewPageTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.page = parser.parse_renew_page(PROD_HTML)
+        self.page = parser.parse_renew_page(PROD_HTML, PAGE_URL)
         assert self.page is not None
 
     def test_form(self) -> None:
@@ -186,7 +189,7 @@ class ParseRenewPageTest(unittest.TestCase):
         )
 
     def test_page_without_form(self) -> None:
-        self.assertIsNone(parser.parse_renew_page("<html><body>Ništa</body></html>"))
+        self.assertIsNone(parser.parse_renew_page("<html><body>Ništa</body></html>", PAGE_URL))
 
 
 class MatchRenewOptionsTest(unittest.TestCase):
@@ -267,7 +270,7 @@ class RealSnapshotTest(unittest.TestCase):
     @unittest.skipUnless((RECON / "prod.html").exists(), "nema snimke u recon/")
     def test_real_renew_page_parses(self) -> None:
         html = (RECON / "prod.html").read_text(encoding="utf-8", errors="replace")
-        page = parser.parse_renew_page(html)
+        page = parser.parse_renew_page(html, PAGE_URL)
         self.assertIsNotNone(page)
         assert page is not None
         citam = parser.parse_loans(

@@ -77,7 +77,8 @@ class KnjiznicaCoordinator(DataUpdateCoordinator[list[Loan]]):
             try:
                 await self.client.async_renew(loan)
             except (MetelgradError, aiohttp.ClientError, TimeoutError) as err:
-                errors[loan.title] = str(err)
+                # I tip greške, jer neki aiohttp izuzeci nose samo URL u poruci.
+                errors[loan.title] = f"{type(err).__name__}: {err}"
 
         await self.async_refresh()
         current = {loan.title: loan for loan in self.data or []}

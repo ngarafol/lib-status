@@ -35,7 +35,7 @@ CITAM_HTML = """
 
 PROD_HTML = """
 <html><body>
-<form method="post" action="https://library.foi.hr/lib/korisnik.php?page=prod">
+<form method="post" action="korisnik.php?page=prod">
   <input type="hidden" name="H" value="">
   <input type="hidden" name="B" value="11">
   <input type="hidden" name="zahtjev" value="1">

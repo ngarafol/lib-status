@@ -20,6 +20,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any
+from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
 
@@ -125,8 +126,15 @@ def parse_loans(html: str) -> list[Loan]:
     return loans
 
 
-def parse_renew_page(html: str) -> RenewPage | None:
-    """Izvuci obrazac za produženje sa stranice `page=prod`."""
+def parse_renew_page(html: str, base_url: str) -> RenewPage | None:
+    """Izvuci obrazac za produženje sa stranice `page=prod`.
+
+    `base_url` je URL same stranice. Akcija obrasca je na živoj stranici
+    **relativna** (`korisnik.php?page=prod`), a u spremljenoj snimci izgleda
+    apsolutno jer ju browser prepiše pri spremanju stranice. Zato se akcija
+    uvijek razrješava kroz `urljoin` — bez toga POST pada s
+    `InvalidUrlClientError` (provjereno na prvom pravom produženju).
+    """
     soup = BeautifulSoup(html, "html.parser")
     checkbox = _find_renew_checkbox(soup)
     if checkbox is None:
@@ -152,7 +160,7 @@ def parse_renew_page(html: str) -> RenewPage | None:
         )
 
     return RenewPage(
-        action=form.get("action", ""),
+        action=urljoin(base_url, form.get("action", "")),
         checkbox_name=checkbox["name"],
         hidden={
             element["name"]: element.get("value", "")

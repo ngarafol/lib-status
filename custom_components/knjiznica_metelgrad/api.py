@@ -82,8 +82,9 @@ class MetelgradClient:
 
     async def async_renew_page(self) -> RenewPage | None:
         """Obrazac za produženje i primjerci ponuđeni na njemu."""
-        html = await self._async_get_authenticated(self._page_url("prod"))
-        return parse_renew_page(html)
+        url = self._page_url("prod")
+        html = await self._async_get_authenticated(url)
+        return parse_renew_page(html, url)
 
     async def async_renew(self, loan: Loan) -> None:
         """Pošalji zahtjev za produženje za jednu posudbu."""
