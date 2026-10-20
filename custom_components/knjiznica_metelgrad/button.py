@@ -17,12 +17,23 @@ from .entity import KnjiznicaEntity
 from .parser import Loan
 
 
+def _loan_key(loan: Loan) -> str:
+    """Stabilan ključ posudbe dok je knjiga posuđena.
+
+    Identifikator zapisa (`D…`) ne mijenja se ni kad se rok produži, za razliku
+    od oznake primjerka (`MK…`) koja postoji samo dok je produženje ponuđeno.
+    Dvije kopije istog naslova odjednom dijele ključ — za dječju knjižnicu je to
+    zanemariv slučaj.
+    """
+    return loan.record_key or loan.title.casefold()
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Postavi gumb "produži sve" i po jedan gumb za svaku produživu posudbu."""
+    """Postavi gumb "produži sve" i po jedan gumb za svaku posuđenu knjigu."""
     coordinator: KnjiznicaCoordinator = entry.runtime_data.coordinator
     async_add_entities([RenewAllButton(coordinator, entry)])
 
@@ -30,19 +41,23 @@ async def async_setup_entry(
 
     @callback
     def _sync_loan_buttons() -> None:
-        """Dodaj gumb za nove posudbe, ukloni ga kad posudba nije produživa."""
-        renewable = {loan.renew_id: loan for loan in coordinator.data or [] if loan.renewable}
+        """Dodaj gumb za nove posudbe, ukloni ga kad knjiga više nije posuđena.
+
+        Gumb ostaje i kad se produženje trenutno ne nudi — tada je nedostupan,
+        umjesto da nestane (nestali entitet na dashboardu daje "entity not found").
+        """
+        loans = {_loan_key(loan): loan for loan in coordinator.data or []}
         added = []
-        for renew_id, loan in renewable.items():
-            if renew_id not in known:
-                known[renew_id] = RenewLoanButton(coordinator, entry, loan)
-                added.append(known[renew_id])
+        for key, loan in loans.items():
+            if key not in known:
+                known[key] = RenewLoanButton(coordinator, entry, key, loan.title)
+                added.append(known[key])
         if added:
             async_add_entities(added)
 
         registry = entity_registry.async_get(hass)
-        for renew_id in [key for key in known if key not in renewable]:
-            button = known.pop(renew_id)
+        for key in [key for key in known if key not in loans]:
+            button = known.pop(key)
             if button.entity_id is not None:
                 # Uklanjanje iz registra platforma pretvara u potpuno uklanjanje
                 # entiteta; samo async_remove() bi ga ostavilo kao "unavailable".
@@ -84,18 +99,22 @@ class RenewAllButton(_RenewButton):
 class RenewLoanButton(_RenewButton):
     """Produžuje jednu posudbu (knjiga iz naziva gumba)."""
 
-    def __init__(self, coordinator: KnjiznicaCoordinator, entry: ConfigEntry, loan: Loan) -> None:
-        super().__init__(coordinator, entry, f"renew_{loan.renew_id}")
-        self._renew_id = loan.renew_id
-        self._attr_name = f"Produži: {loan.title}"
+    def __init__(
+        self, coordinator: KnjiznicaCoordinator, entry: ConfigEntry, key: str, title: str
+    ) -> None:
+        super().__init__(coordinator, entry, f"renew_{key}")
+        self._key = key
+        self._attr_name = f"Produži: {title}"
 
     @property
     def _loan(self) -> Loan | None:
-        return next((loan for loan in self.loans if loan.renew_id == self._renew_id), None)
+        return next((loan for loan in self.loans if _loan_key(loan) == self._key), None)
 
     @property
     def available(self) -> bool:
-        return super().available and self._loan is not None
+        """Dostupan samo dok knjižnica tu posudbu nudi za produženje."""
+        loan = self._loan
+        return super().available and loan is not None and loan.renewable
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -105,5 +124,7 @@ class RenewLoanButton(_RenewButton):
     async def async_press(self) -> None:
         loan = self._loan
         if loan is None:
-            raise HomeAssistantError("Posudba više nije na popisu za produženje.")
+            raise HomeAssistantError("Knjiga više nije na popisu posudbi.")
+        if not loan.renewable:
+            raise HomeAssistantError(f"Knjižnica trenutno ne nudi produženje za '{loan.title}'.")
         self._raise_on_failure(await self.coordinator.async_renew_loans([loan]))

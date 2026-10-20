@@ -194,13 +194,14 @@ async def test_renew_button(hass: HomeAssistant) -> None:
     assert renew.await_count == 1
 
 
-async def test_button_for_each_renewable_loan(hass: HomeAssistant) -> None:
+async def test_button_for_each_borrowed_book(hass: HomeAssistant) -> None:
     with patch(FETCH, new=AsyncMock(return_value=_loans())):
         await _setup_entry(hass)
 
-    # Gumb po knjizi nosi naslov knjige; "Dnevnik" nije ponuđen za produženje.
-    assert hass.states.get("button.ana_produzi_mali_princ") is not None
-    assert hass.states.get("button.ana_produzi_dnevnik") is None
+    # Gumb po svakoj posuđenoj knjizi; "Dnevnik" knjižnica ne nudi za produženje,
+    # pa je njegov gumb nedostupan (ali postoji — dashboard ne visi na ničemu).
+    assert hass.states.get("button.ana_produzi_mali_princ").state != STATE_UNAVAILABLE
+    assert hass.states.get("button.ana_produzi_dnevnik").state == STATE_UNAVAILABLE
     assert hass.states.get("button.ana_produzi_sve") is not None
 
 
@@ -228,19 +229,57 @@ async def test_loan_button_renews_only_that_loan(hass: HomeAssistant) -> None:
     )
 
 
-async def test_loan_button_is_removed_when_not_renewable(hass: HomeAssistant) -> None:
+async def test_loan_button_becomes_unavailable_when_not_renewable(
+    hass: HomeAssistant,
+) -> None:
     with patch(FETCH, new=AsyncMock(return_value=_loans())):
         entry = await _setup_entry(hass)
     assert hass.states.get("button.ana_produzi_mali_princ") is not None
 
-    # Knjižnica više ne nudi tu posudbu za produženje.
+    # Knjižnica više ne nudi tu posudbu za produženje (npr. zahtjev čeka odobrenje).
     coordinator = entry.runtime_data.coordinator
     coordinator.async_set_updated_data([replace(_loans()[0], renew_id=None), _loans()[1]])
     await hass.async_block_till_done()
 
+    # Gumb ostaje (knjiga je još posuđena), samo nije dostupan.
+    assert hass.states.get("button.ana_produzi_mali_princ").state == STATE_UNAVAILABLE
+    assert entity_registry.async_get(hass).async_get("button.ana_produzi_mali_princ") is not None
+
+
+async def test_loan_button_removed_when_book_returned(hass: HomeAssistant) -> None:
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
+        entry = await _setup_entry(hass)
+    assert hass.states.get("button.ana_produzi_mali_princ") is not None
+
+    # Knjiga je vraćena: nema je više na popisu posudbi.
+    coordinator = entry.runtime_data.coordinator
+    coordinator.async_set_updated_data([_loans()[1]])
+    await hass.async_block_till_done()
+
     # Entitet je uklonjen iz registra (HA zadrži samo "restored" stanje).
     assert entity_registry.async_get(hass).async_get("button.ana_produzi_mali_princ") is None
-    assert hass.states.get("button.ana_produzi_sve") is not None
+
+
+async def test_press_succeeds_when_renewability_disappears(hass: HomeAssistant) -> None:
+    """Regresija: gumb ne smije nestati usred pritiska ("entity not found")."""
+    after = [replace(_loans()[0], renew_id=None), _loans()[1]]
+    with (
+        patch(FETCH, new=AsyncMock(side_effect=[_loans(), after])),
+        patch(RENEW, new=AsyncMock(return_value=None)),
+    ):
+        await _setup_entry(hass)
+
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.ana_produzi_mali_princ"},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    button = hass.states.get("button.ana_produzi_mali_princ")
+    assert button is not None
+    assert button.state == STATE_UNAVAILABLE
 
 
 async def test_two_cards_are_separate_and_service_covers_both(hass: HomeAssistant) -> None:
