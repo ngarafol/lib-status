@@ -37,8 +37,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # da poruka taga bude dostupna
+      - uses: actions/checkout@v4
 
       - name: Usporedi tag s verzijom u manifestu
         run: |
@@ -59,5 +58,12 @@ jobs:
             echo "Release $tag već postoji — preskačem."
             exit 0
           fi
-          notes=$(git tag -l --format='%(contents)' "$tag")
-          gh release create "$tag" --title "$tag" --notes "${notes:-Release $tag}"
+          # Poruka taga preko API-ja: actions/checkout zna tag predstaviti kao
+          # lagani, pa bi %(contents) vratio poruku commita umjesto poruke taga.
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha)
+          notes=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq .message 2>/dev/null || true)
+          if [ -n "$notes" ]; then
+            gh release create "$tag" --title "$tag" --notes "$notes"
+          else
+            gh release create "$tag" --title "$tag" --generate-notes
+          fi
