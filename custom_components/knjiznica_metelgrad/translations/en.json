@@ -17,6 +17,16 @@
         "data": {
           "password": "Password"
         }
+      },
+      "reconfigure": {
+        "title": "Update card details",
+        "description": "Change the card name, e-mail, password or library id.",
+        "data": {
+          "member_name": "Card name (e.g. the child's name)",
+          "email": "E-mail used for the library login",
+          "password": "Password",
+          "library_id": "Library id (B, e.g. 11)"
+        }
       }
     },
     "error": {

@@ -17,6 +17,16 @@
         "data": {
           "password": "Lozinka"
         }
+      },
+      "reconfigure": {
+        "title": "Promjena podataka kartice",
+        "description": "Izmijeni naziv kartice, e-mail, lozinku ili oznaku knjižnice.",
+        "data": {
+          "member_name": "Naziv kartice (npr. ime djeteta)",
+          "email": "E-mail za prijavu",
+          "password": "Lozinka",
+          "library_id": "Oznaka knjižnice (B, npr. 11)"
+        }
       }
     },
     "error": {

@@ -90,6 +90,45 @@ class KnjiznicaMetelgradConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
         return self.async_show_form(step_id="user", data_schema=USER_SCHEMA, errors=errors)
 
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Promjena podataka kartice (naziv, e-mail, lozinka, oznaka knjižnice)."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                await async_validate(user_input)
+            except MetelgradAuthError as err:
+                _LOGGER.error("Prijava na library.foi.hr nije uspjela: %s", err)
+                errors["base"] = "invalid_auth"
+            except (aiohttp.ClientError, TimeoutError, MetelgradError) as err:
+                _LOGGER.error("Spoj na library.foi.hr nije uspio: %s", err)
+                errors["base"] = "cannot_connect"
+            else:
+                new_unique_id = _unique_id(user_input)
+                if new_unique_id != entry.unique_id and (
+                    self.hass.config_entries.async_entry_for_domain_unique_id(DOMAIN, new_unique_id)
+                ):
+                    return self.async_abort(reason="already_configured")
+                return self.async_update_reload_and_abort(
+                    entry,
+                    title=user_input[CONF_MEMBER_NAME],
+                    data_updates=dict(user_input),
+                    unique_id=new_unique_id,
+                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                USER_SCHEMA,
+                {
+                    CONF_MEMBER_NAME: entry.title,
+                    CONF_EMAIL: entry.data.get(CONF_EMAIL, ""),
+                    CONF_PASSWORD: entry.data.get(CONF_PASSWORD, ""),
+                    CONF_LIBRARY_ID: entry.data.get(CONF_LIBRARY_ID, DEFAULT_LIBRARY_ID),
+                },
+            ),
+            errors=errors,
+        )
+
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> FlowResult:
         """Pokreni ponovnu prijavu kad HA javi da podaci više ne rade."""
         return await self.async_step_reauth_confirm()
