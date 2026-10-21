@@ -1,4 +1,4 @@
-"""Senzori: ukupan broj posudbi, najbliži rok i rok po svakoj knjizi."""
+"""Senzori: ukupan broj posudbi i najbliži rok vraćanja."""
 
 from __future__ import annotations
 
@@ -16,8 +16,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .coordinator import KnjiznicaCoordinator
-from .entity import KnjiznicaEntity, LoanEntity, async_track_loan_entities
-from .parser import Loan
+from .entity import KnjiznicaEntity
 
 
 async def async_setup_entry(
@@ -25,7 +24,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Postavi sažete senzore i po jedan senzor za svaku posuđenu knjigu."""
+    """Postavi senzore za ovu karticu."""
     coordinator: KnjiznicaCoordinator = entry.runtime_data.coordinator
     async_add_entities(
         [
@@ -33,16 +32,10 @@ async def async_setup_entry(
             DueDateSensor(coordinator, entry),
         ]
     )
-    async_track_loan_entities(
-        hass,
-        entry,
-        async_add_entities,
-        lambda key, loan: LoanDueSensor(coordinator, entry, key, loan),
-    )
 
 
 class LoansSensor(KnjiznicaEntity, SensorEntity):
-    """Broj posudbi + popis u atributima."""
+    """Broj posudbi + popis svih knjiga i rokova u atributima."""
 
     _attr_name = "Posudbe"
     _attr_icon = "mdi:book-open-page-variant"
@@ -73,25 +66,3 @@ class DueDateSensor(KnjiznicaEntity, SensorEntity):
     @property
     def native_value(self) -> date | None:
         return min((loan.due_on for loan in self.loans), default=None)
-
-
-class LoanDueSensor(LoanEntity, SensorEntity):
-    """Rok vraćanja jedne knjige (naziv entiteta = naslov knjige)."""
-
-    _attr_device_class = SensorDeviceClass.DATE
-    _attr_icon = "mdi:book-clock"
-
-    def __init__(
-        self, coordinator: KnjiznicaCoordinator, entry: ConfigEntry, key: str, loan: Loan
-    ) -> None:
-        super().__init__(coordinator, entry, key, loan.title, "loan")
-
-    @property
-    def native_value(self) -> date | None:
-        loan = self.loan
-        return None if loan is None else loan.due_on
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        loan = self.loan
-        return {} if loan is None else loan.as_dict(dt_util.now().date())

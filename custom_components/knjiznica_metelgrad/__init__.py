@@ -27,6 +27,7 @@ from .const import (
     SERVICE_RENEW,
 )
 from .coordinator import KnjiznicaCoordinator
+from .entity import async_prune_loan_entities
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +91,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: KnjiznicaConfigEntry) ->
     # Promjena opcija (interval provjere) ili podataka (ponovna prijava) reloada
     # integraciju; zamjena za OptionsFlowWithReload iz novijih HA verzija.
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    # Entiteti koje su starije verzije stvarale po knjizi nestaju iz registra.
+    async_prune_loan_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
