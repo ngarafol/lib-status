@@ -112,6 +112,46 @@ loans:
 Za automatizacije koristi `due_on` (apsolutni datum, ne zastarijeva između
 provjera). `days_left` se osvježava samo pri provjeri.
 
+## Dashboard
+
+Dvije kartice pokrivaju cijeli tijek.
+
+**Popis posudbi** (markdown kartica) — uvijek vidiš sve knjige; ako sve imaju
+isti rok, datum se prikaže jednom, inače uz svaku knjigu:
+
+```yaml
+type: markdown
+title: Posudbe
+content: |
+  {% set loans = state_attr('sensor.nika_posudbe', 'loans') or [] %}
+  {% if loans | count == 0 -%}
+  Nema posuđenih knjiga.
+  {%- elif loans | map(attribute='due_on') | unique | list | count == 1 -%}
+  **Sve do {{ loans[0].due_on }}.**
+  {%- else -%}
+  {% for loan in loans -%}
+  - **{{ loan.title }}** — do {{ loan.due_on }} ({{ loan.days_left }} d)
+  {% endfor -%}
+  {%- endif %}
+```
+
+Zamijeni `sensor.nika_posudbe` svojim senzorom (naziv kartice + `_posudbe`).
+
+**Akcije** (entities kartica) — gumb po knjizi. Siv je kad knjižnica tu knjigu
+trenutno ne nudi za produženje (npr. jedino dopušteno produženje je iskorišteno):
+
+```yaml
+type: entities
+title: Produži
+entities:
+  - button.nika_produzi_kazaliste
+  - button.nika_produzi_pino_uci_gosti   # ostale birate iz UI-a
+```
+
+> Knjižnica ne bilježi oznaku „produženo": jedini podatak je **rok vraćanja**,
+> koji se nakon odobrenja pomakne. Zato kartica pokazuje trenutni rok, a sivi
+> gumb znači da produženje za tu knjigu više nije ponuđeno.
+
 ## Notifikacije
 
 Gotov blueprint: `blueprints/automation/knjiznica_metelgrad/podsjetnik_rok_vracanja.yaml`.
