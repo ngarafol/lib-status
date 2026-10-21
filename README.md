@@ -118,7 +118,7 @@ content: |
   **Sve do {{ loans[0].due_on }}.**
   {%- else -%}
   {% for loan in loans -%}
-  - **{{ loan.title }}** — do {{ loan.due_on }} ({{ loan.days_left }} d)
+  - **{{ loan.title }}** — do {{ loan.due_on }} ({{ loan.days_left }} d){% if loan.renewable %} · produživo{% endif %}
   {% endfor -%}
   {%- endif %}
 ```
