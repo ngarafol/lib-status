@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import SOURCE_USER, ConfigEntryState
+from homeassistant.config_entries import SOURCE_RECONFIGURE, SOURCE_USER, ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
@@ -353,3 +353,58 @@ async def test_unload_entry(hass: HomeAssistant) -> None:
         await hass.services.async_call(
             DOMAIN, SERVICE_RENEW, {}, blocking=True, return_response=True
         )
+
+
+async def test_sensor_for_each_borrowed_book(hass: HomeAssistant) -> None:
+    """Senzor po knjizi: naziv je naslov, stanje rok vraćanja."""
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
+        entry = await _setup_entry(hass)
+
+    first = hass.states.get("sensor.ana_mali_princ")
+    assert first is not None
+    assert first.state == (_today() + timedelta(days=5)).isoformat()
+    assert first.attributes["author"] == "Saint-Exupéry"
+    assert first.attributes["renewable"] is True
+
+    # Postoji i za knjigu koja nije produživa — senzor ne ovisi o produživosti.
+    second = hass.states.get("sensor.ana_dnevnik")
+    assert second is not None
+    assert second.state == (_today() + timedelta(days=2)).isoformat()
+
+    # Vraćena knjiga: senzor nestaje iz sučelja i registra.
+    coordinator = entry.runtime_data.coordinator
+    coordinator.async_set_updated_data([_loans()[1]])
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.ana_mali_princ") is None
+    assert entity_registry.async_get(hass).async_get("sensor.ana_mali_princ") is None
+    assert hass.states.get("sensor.ana_dnevnik") is not None
+
+
+async def test_reconfigure_updates_card(hass: HomeAssistant) -> None:
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
+        entry = await _setup_entry(hass)
+
+    new_data = {
+        CONF_MEMBER_NAME: "Ana Marija",
+        CONF_EMAIL: "ana.marija@example.com",
+        CONF_PASSWORD: "nova-lozinka",
+        CONF_LIBRARY_ID: "11",
+    }
+    with (
+        patch(VALIDATE, new=AsyncMock(return_value=None)),
+        patch(FETCH, new=AsyncMock(return_value=_loans())),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id}
+        )
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "reconfigure"
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], new_data)
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.title == "Ana Marija"
+    assert entry.data[CONF_EMAIL] == "ana.marija@example.com"
+    assert entry.unique_id == "11:ana.marija@example.com"
