@@ -85,7 +85,8 @@ Gumb po knjizi postoji **dok je knjiga posuđena** — kad je knjižnica vrati n
 popis, nestaje. Ako za tu posudbu trenutno ne nudi produženje (npr. zahtjev čeka
 odobrenje knjižničara), gumb ostaje ali je nedostupan, umjesto da nestane. Svaki
 gumb nosi i `due_on`/`days_left` kao atribute, pa se datum vidi na klik (više
-informacija).
+informacija). Gumbi iz starijih verzija (drugačiji interni ključ) čiste se sami
+pri učitavanju, pa `entity_id` ostaju isti i kartice na dashboardu ne pucaju.
 
 Za dashboard, kartica s gumbima po knjizi:
 
@@ -295,5 +296,5 @@ MIT — vidi [LICENSE](LICENSE).
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 40 testova (19 parser + 13 HA + 5 blueprint + 3 klijent), svi prolaze |
+| Testovi | 41 test (19 parser + 14 HA + 5 blueprint + 3 klijent), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
