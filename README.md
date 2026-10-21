@@ -78,28 +78,15 @@ Za karticu `Ana` (naziv koji upišeš pri dodavanju):
 
 | Entitet | Značenje |
 | --- | --- |
-| `sensor.ana_posudbe` | broj trenutno posuđenih knjiga |
+| `sensor.ana_posudbe` | broj trenutno posuđenih knjiga (popis svih knjiga i rokova u atributima) |
 | `sensor.ana_rok_vracanja` | najbliži rok vraćanja (datum) |
-| `sensor.ana_<knjiga>` | rok vraćanja te knjige (datum; atributi: autor, `days_left`, `renewable`) |
-| `button.ana_produzi_<knjiga>` | produžuje **samo tu** knjigu (po jedan gumb za svaku posuđenu knjigu) |
 | `button.ana_produzi_sve` | produžuje sve posudbe koje knjižnica nudi kao produžive |
 
-Gumb po knjizi postoji **dok je knjiga posuđena** — kad je knjižnica vrati na
-popis, nestaje. Ako za tu posudbu trenutno ne nudi produženje (npr. zahtjev čeka
-odobrenje knjižničara), gumb ostaje ali je nedostupan, umjesto da nestane. Svaki
-gumb nosi i `due_on`/`days_left` kao atribute, pa se datum vidi na klik (više
-informacija). Gumbi iz starijih verzija (drugačiji interni ključ) čiste se sami
-pri učitavanju, pa `entity_id` ostaju isti i kartice na dashboardu ne pucaju.
-
-Za dashboard, kartica s gumbima po knjizi:
-
-```yaml
-type: entities
-title: Posudbe – Ana
-entities:
-  - button.ana_produzi_mali_princ
-  - button.ana_produzi_dnevnik
-```
+Entiteta je namjerno samo tri: knjige i rokovi žive u atributima senzora
+`posudbe`, pa se popis prikazuje karticom (vidi [Dashboard](#dashboard)), a ne
+entitetom po knjizi. Tako se kartica ne mora mijenjati kad se posudbe promijene.
+Produžavanje pojedine knjige ide iz **notifikacije** (gumb uz svaku knjigu) ili
+servisom — vidi [Produženje](#produženje).
 
 Senzor `sensor.ana_posudbe` nosi i atribute:
 
@@ -117,19 +104,8 @@ provjera). `days_left` se osvježava samo pri provjeri.
 
 ## Dashboard
 
-**Popis posudbi** (entities kartica) — svaka knjiga je zaseban senzor, a stanje
-je rok vraćanja:
-
-```yaml
-type: entities
-title: Posudbe
-entities:
-  - sensor.nika_kazaliste
-  - sensor.nika_pino_uci_gosti   # ostale birate iz UI-a
-```
-
-Ako želiš da se isti rok prikaže **samo jednom** (kad sve knjige imaju isti
-datum), koristi markdown karticu umjesto entities kartice:
+**Popis posudbi** (markdown kartica) — uvijek prikazuje trenutne knjige; ako sve
+imaju isti rok, datum se prikaže jednom, inače uz svaku knjigu:
 
 ```yaml
 type: markdown
@@ -149,20 +125,19 @@ content: |
 
 Zamijeni `sensor.nika_posudbe` svojim senzorom (naziv kartice + `_posudbe`).
 
-**Akcije** (entities kartica) — gumb po knjizi. Siv je kad knjižnica tu knjigu
-trenutno ne nudi za produženje (npr. jedino dopušteno produženje je iskorišteno):
+**Akcije** (entities kartica) — „Produži sve" i najbliži rok:
 
 ```yaml
 type: entities
 title: Produži
 entities:
-  - button.nika_produzi_kazaliste
-  - button.nika_produzi_pino_uci_gosti   # ostale birate iz UI-a
+  - button.nika_produzi_sve
+  - sensor.nika_rok_vracanja
 ```
 
 > Knjižnica ne bilježi oznaku „produženo": jedini podatak je **rok vraćanja**,
-> koji se nakon odobrenja pomakne. Zato kartica pokazuje trenutni rok, a sivi
-> gumb znači da produženje za tu knjigu više nije ponuđeno.
+> koji se nakon odobrenja pomakne. Pojedinačno produženje radiš iz notifikacije
+> (gumb uz svaku knjigu) — vidi [Notifikacije](#notifikacije).
 
 ## Notifikacije
 
@@ -196,49 +171,25 @@ Ako ti blueprint ne odgovara, uvjet računaj iz `due_on` (apsolutni datum), a ne
 iz atributa `days_left` — taj se osvježava samo pri provjeri knjižnice, pa uz
 rjeđi interval propusti trenutak prelaska praga.
 
-### Produženje iz notifikacije (akcijski gumb)
+### Produženje iz notifikacije
 
-Mobilna aplikacija može poslati notifikaciju s gumbom koji poziva servis:
+Blueprint to već radi — ne treba ništa dodatno podešavati:
 
-```yaml
-automation:
-  - alias: "Knjižnica – akcija iz notifikacije"
-    triggers:
-      - trigger: event
-        event_type: mobile_app_notification_action
-        event_data:
-          action: RENEW_LIBRARY_BOOKS
-    actions:
-      - action: knjiznica_metelgrad.renew
-        data:
-          loan: "Mali princ" # ili bez `loan` za sve produžive
-        response_variable: rezultat
-      - action: notify.mobile_app_ana
-        data:
-          message: >-
-            Poslano: {{ rezultat.submitted }}, potvrđeno: {{ rezultat.confirmed }},
-            neuspješno: {{ rezultat.failed }}
-```
+- uz notifikaciju idu gumbi **„Produži: <knjiga>"** za svaku knjigu u prozoru
+  (najviše 3, koliko mobilne aplikacije prikazuju),
+- klik na gumb pošalje zahtjev za produženje baš te knjige i vrati kratku
+  potvrdu („Zahtjev za produženje poslan: …").
 
-Notifikacija koja nudi taj gumb:
-
-```yaml
-      - action: notify.mobile_app_ana
-        data:
-          title: "📚 Rok vraćanja"
-          message: "Mali princ – vraćanje 18.10.2026."
-          data:
-            actions:
-              - action: RENEW_LIBRARY_BOOKS
-                title: "Produži"
-```
+Tehnički: gumb nosi akciju `RENEW: <naslov>`, a isti automat ima i okidač na
+`mobile_app_notification_action` koji to prepozna i pozove servis
+`knjiznica_metelgrad.renew`. Ako želiš svoj automat, koristi isti obrazac.
 
 ## Produženje
 
 Tri načina, svi šalju isti zahtjev knjižnici (koji knjižničar odobrava ručno):
 
-- **Gumb po knjizi** `button.ana_produzi_<knjiga>` — produžuje samo tu posudbu.
-  To je najbliže onome što radiš na stranici knjižnice: knjigu po knjigu.
+- **Gumb u notifikaciji** „Produži: <knjiga>" — produžuje samo tu posudbu. To je
+  najbliže onome što radiš na stranici knjižnice: knjigu po knjigu.
 - **Gumb** `button.ana_produzi_sve` — jedan zahtjev sa **svim** primjercima koje
   knjižnica nudi za produženje (sve knjige odjednom).
 - **Servis** `knjiznica_metelgrad.renew`:
@@ -348,5 +299,5 @@ MIT — vidi [LICENSE](LICENSE).
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 43 testa (19 parser + 16 HA + 5 blueprint + 3 klijent), svi prolaze |
+| Testovi | 39 testova (19 parser + 10 HA + 7 blueprint + 3 klijent), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
