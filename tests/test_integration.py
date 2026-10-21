@@ -282,6 +282,30 @@ async def test_press_succeeds_when_renewability_disappears(hass: HomeAssistant) 
     assert button.state == STATE_UNAVAILABLE
 
 
+async def test_stale_button_from_older_version_is_cleaned(hass: HomeAssistant) -> None:
+    """0.1.3 je unique_id gradio po oznaci primjerka (MK…), 0.1.4 po zapisu (D…)."""
+    registry = entity_registry.async_get(hass)
+    entry = MockConfigEntry(domain=DOMAIN, title="Ana", data=USER_INPUT, unique_id="11:ana")
+    entry.add_to_hass(hass)
+    registry.async_get_or_create(
+        "button",
+        DOMAIN,
+        f"{entry.entry_id}_renew_MK1",
+        suggested_object_id="ana_produzi_mali_princ",
+        config_entry=entry,
+    )
+
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    # Stari entitet je zamijenjen novim na istom, čistom entity_id: kartica na
+    # dashboardu nastavlja raditi, a nema sufiksa _2 ni duplikata.
+    assert registry.async_get_entity_id("button", DOMAIN, f"{entry.entry_id}_renew_MK1") is None
+    assert hass.states.get("button.ana_produzi_mali_princ") is not None
+    assert hass.states.get("button.ana_produzi_mali_princ_2") is None
+
+
 async def test_two_cards_are_separate_and_service_covers_both(hass: HomeAssistant) -> None:
     """Više kartica: svaka ima svoje entitete, a servis bez odabira radi na svima."""
     renew = AsyncMock(return_value=None)

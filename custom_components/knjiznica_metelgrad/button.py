@@ -41,12 +41,27 @@ async def async_setup_entry(
 
     @callback
     def _sync_loan_buttons() -> None:
-        """Dodaj gumb za nove posudbe, ukloni ga kad knjiga više nije posuđena.
+        """Uskladi gumbe s posudbama i počisti zaostale entitete.
 
         Gumb ostaje i kad se produženje trenutno ne nudi — tada je nedostupan,
         umjesto da nestane (nestali entitet na dashboardu daje "entity not found").
         """
         loans = {_loan_key(loan): loan for loan in coordinator.data or []}
+        expected = {f"{entry.entry_id}_renew_{key}" for key in loans}
+        registry = entity_registry.async_get(hass)
+
+        # 1) Počisti gumbe koji ne pripadaju nijednoj trenutnoj posudbi. To
+        # pokriva i entitete iz starijih verzija (0.1.3 je unique_id gradio po
+        # oznaci primjerka); bez toga stari ostanu kao nedostupni, a novi gumbi
+        # dobiju sufikse (_2) — pa kartica pokazuje na mrtav entitet.
+        for reg_entry in entity_registry.async_entries_for_config_entry(registry, entry.entry_id):
+            unique_id = reg_entry.unique_id
+            if reg_entry.domain != "button" or not unique_id.startswith(f"{entry.entry_id}_renew_"):
+                continue
+            if unique_id not in expected and unique_id != f"{entry.entry_id}_renew_all":
+                registry.async_remove(reg_entry.entity_id)
+
+        # 2) Dodaj gumbe za nove posudbe — nakon čišćenja, da dobiju čist entity_id.
         added = []
         for key, loan in loans.items():
             if key not in known:
@@ -55,13 +70,9 @@ async def async_setup_entry(
         if added:
             async_add_entities(added)
 
-        registry = entity_registry.async_get(hass)
+        # 3) Zaboravi posudbe kojih više nema (entitet je već uklonjen gore).
         for key in [key for key in known if key not in loans]:
-            button = known.pop(key)
-            if button.entity_id is not None:
-                # Uklanjanje iz registra platforma pretvara u potpuno uklanjanje
-                # entiteta; samo async_remove() bi ga ostavilo kao "unavailable".
-                registry.async_remove(button.entity_id)
+            del known[key]
 
     entry.async_on_unload(coordinator.async_add_listener(_sync_loan_buttons))
     _sync_loan_buttons()
