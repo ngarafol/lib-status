@@ -66,6 +66,8 @@ HA config entry (kartica)                       Home Assistant
    Za svako dijete dodaj integraciju ponovno — svaka kartica je zaseban unos.
 
 4. U opcijama integracije podesi interval provjere (zadano 24 h).
+5. Naziv kartice ili podatke kasnije mijenjaš s **Rekonfiguriraj** (isti
+   izbornik integracije), a interval provjere u **Opcijama**.
 
 > Minimalna verzija: Home Assistant 2024.12 (provjereno da svi korišteni API-ji
 > postoje u toj verziji).
@@ -78,6 +80,7 @@ Za karticu `Ana` (naziv koji upišeš pri dodavanju):
 | --- | --- |
 | `sensor.ana_posudbe` | broj trenutno posuđenih knjiga |
 | `sensor.ana_rok_vracanja` | najbliži rok vraćanja (datum) |
+| `sensor.ana_<knjiga>` | rok vraćanja te knjige (datum; atributi: autor, `days_left`, `renewable`) |
 | `button.ana_produzi_<knjiga>` | produžuje **samo tu** knjigu (po jedan gumb za svaku posuđenu knjigu) |
 | `button.ana_produzi_sve` | produžuje sve posudbe koje knjižnica nudi kao produžive |
 
@@ -114,10 +117,19 @@ provjera). `days_left` se osvježava samo pri provjeri.
 
 ## Dashboard
 
-Dvije kartice pokrivaju cijeli tijek.
+**Popis posudbi** (entities kartica) — svaka knjiga je zaseban senzor, a stanje
+je rok vraćanja:
 
-**Popis posudbi** (markdown kartica) — uvijek vidiš sve knjige; ako sve imaju
-isti rok, datum se prikaže jednom, inače uz svaku knjigu:
+```yaml
+type: entities
+title: Posudbe
+entities:
+  - sensor.nika_kazaliste
+  - sensor.nika_pino_uci_gosti   # ostale birate iz UI-a
+```
+
+Ako želiš da se isti rok prikaže **samo jednom** (kad sve knjige imaju isti
+datum), koristi markdown karticu umjesto entities kartice:
 
 ```yaml
 type: markdown
@@ -336,5 +348,5 @@ MIT — vidi [LICENSE](LICENSE).
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 41 test (19 parser + 14 HA + 5 blueprint + 3 klijent), svi prolaze |
+| Testovi | 43 testa (19 parser + 16 HA + 5 blueprint + 3 klijent), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
