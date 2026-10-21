@@ -112,6 +112,7 @@ type: markdown
 title: Posudbe
 content: |
   {% set loans = state_attr('sensor.nika_posudbe', 'loans') or [] %}
+  {% set kad = as_local(states.sensor.nika_posudbe.last_updated).strftime('%d.%m. %H:%M') %}
   {% if loans | count == 0 -%}
   Nema posuđenih knjiga.
   {%- elif loans | map(attribute='due_on') | unique | list | count == 1 -%}
@@ -121,9 +122,12 @@ content: |
   - **{{ loan.title }}** — do {{ loan.due_on }} ({{ loan.days_left }} d){% if loan.renewable %} · produživo{% endif %}
   {% endfor -%}
   {%- endif %}
+  <small>podaci od {{ kad }}</small>
 ```
 
 Zamijeni `sensor.nika_posudbe` svojim senzorom (naziv kartice + `_posudbe`).
+Zadnji redak pokazuje kad su podaci dohvaćeni — ako je starije od očekivanog,
+osvježi integraciju (⋮ → Reload).
 
 **Akcije** (entities kartica) — „Produži sve" i najbliži rok:
 
