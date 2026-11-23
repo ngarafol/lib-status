@@ -94,18 +94,41 @@ Senzor `sensor.ana_posudbe` nosi i atribute:
 loans:
   - title: "Mali princ"
     author: "Saint-Exupéry, Antoine de"
+    publisher: "Zagreb : Naklada, 2017."
+    code: "D10001"
+    borrowed_on: "2026-10-10"
     due_on: "2026-10-18"
     days_left: 5
     renewable: true
+    cover: "https://library.foi.hr/lib/slike/…jpg"
 ```
 
 Za automatizacije koristi `due_on` (apsolutni datum, ne zastarijeva između
 provjera). `days_left` se osvježava samo pri provjeri.
 
-## Dashboard
+## Kartica na dashboardu
 
-**Popis posudbi** (markdown kartica) — uvijek prikazuje trenutne knjige; ako sve
-imaju isti rok, datum se prikaže jednom, inače uz svaku knjigu:
+Integracija dolazi s **vlastitom karticom**; ne treba ju instalirati ni
+registrirati kao resurs — učita se sama kad se integracija doda.
+
+```yaml
+type: custom:knjiznica-metelgrad-card
+entity: sensor.nika_posudbe
+# title: Knjižnica          # neobavezno
+```
+
+Po knjizi prikazuje: **naslovnicu** (kad ju knjižnica ima), naslov, autora,
+šifru zapisa, datum posudbe i rok vraćanja — s bojom (zeleno / žuto / crveno) i
+brojem dana — plus gumb **Produži**, koji je siv kad knjižnica za tu knjigu više
+ne nudi produženje. U zaglavlju su broj knjiga, najbliži rok i **Produži sve**;
+dolje vrijeme dohvata podataka.
+
+Ako naslovnica traži prijavu i ne učita se, kartica prikaže rezervnu sliku.
+
+### Klasična varijanta (bez naslovnica)
+
+Markdown kartica uvijek prikazuje trenutne knjige; ako sve imaju isti rok, datum
+se prikaže jednom, inače uz svaku knjigu:
 
 ```yaml
 type: markdown
@@ -303,5 +326,5 @@ MIT — vidi [LICENSE](LICENSE).
 | Učitavanje integracije, config flow, entiteti, gumb i servis | provjereno u pravom Home Assistantu (testni harness, HA 2026.2.3) |
 | Logika podsjetnika (prozor i "samo jednom") | provjereno renderiranjem blueprinta u HA template engineu |
 | Sam blueprint u HA (odabir entiteta i notifikacija) | nije pokrenut u pravom HA; provjereno mu je samo YAML i logika |
-| Testovi | 39 testova (19 parser + 10 HA + 7 blueprint + 3 klijent), svi prolaze |
+| Testovi | 44 testa (23 parser + 11 HA + 7 blueprint + 3 klijent), svi prolaze |
 | Minimalna verzija 2024.12 | API-ji provjereni u izvorima te verzije; testovi se vrte na 2026.2.3 |
