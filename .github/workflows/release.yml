@@ -26,6 +26,9 @@ jobs:
       - name: Instaliraj testnu okolinu
         run: pip install -r requirements_test.txt
 
+      - name: Sintaksa kartice
+        run: node --check custom_components/knjiznica_metelgrad/www/knjiznica-metelgrad-card.js
+
       - name: Pusti testove
         run: pytest tests/ -q --timeout=120
 

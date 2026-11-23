@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 import aiohttp
 import voluptuous as vol
+from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL, add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
@@ -33,6 +37,12 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
 
+# Lovelace kartica: integracija ju sama posluži i učita, pa nema ručnog
+# dodavanja resursa u HA.
+CARD_URL = "/knjiznica_metelgrad/knjiznica-metelgrad-card.js"
+_CARD_FILE = Path(__file__).parent / "www" / "knjiznica-metelgrad-card.js"
+DATA_CARD = f"{DOMAIN}_card"
+
 
 @dataclass
 class KnjiznicaRuntimeData:
@@ -46,7 +56,8 @@ KnjiznicaConfigEntry = ConfigEntry[KnjiznicaRuntimeData]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Registriraj servis za produženje, jednom za cijelu integraciju."""
+    """Registriraj servis i Lovelace karticu, jednom za cijelu integraciju."""
+    await _async_register_card(hass)
     hass.services.async_register(
         DOMAIN,
         SERVICE_RENEW,
@@ -60,6 +71,20 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         supports_response=SupportsResponse.OPTIONAL,
     )
     return True
+
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Posluži karticu i učitaj ju u frontend (verzija u URL-u ruši cache)."""
+    if hass.data.get(DATA_CARD) or "http" not in hass.config.components:
+        return
+    version = json.loads((Path(__file__).parent / "manifest.json").read_text(encoding="utf-8")).get(
+        "version", "0"
+    )
+    await hass.http.async_register_static_paths([StaticPathConfig(CARD_URL, str(_CARD_FILE), True)])
+    # add_extra_js_url traži da je frontend već inicijalizirao svoj spremnik.
+    hass.data.setdefault(DATA_EXTRA_MODULE_URL, set())
+    add_extra_js_url(hass, f"{CARD_URL}?v={version}")
+    hass.data[DATA_CARD] = version
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: KnjiznicaConfigEntry) -> bool:

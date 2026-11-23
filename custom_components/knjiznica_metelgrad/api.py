@@ -77,8 +77,10 @@ class MetelgradClient:
 
     async def async_fetch_loans(self) -> list[Loan]:
         """Trenutne posudbe, s oznakom je li produženje ponuđeno."""
-        html = await self._async_get_authenticated(self._page_url("citam"))
-        return with_renew_ids(parse_loans(html), await self.async_renew_page())
+        url = self._page_url("citam")
+        html = await self._async_get_authenticated(url)
+        # base_url razrješava relativne putanje naslovnica (img.booker).
+        return with_renew_ids(parse_loans(html, url), await self.async_renew_page())
 
     async def async_renew_page(self) -> RenewPage | None:
         """Obrazac za produženje i primjerci ponuđeni na njemu."""

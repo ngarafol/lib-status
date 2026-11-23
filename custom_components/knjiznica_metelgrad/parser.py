@@ -49,6 +49,10 @@ class Loan:
     record_key: str | None
     # Ispunjeno samo ako je knjižnica za tu posudbu ponudila produženje.
     renew_id: str | None = None
+    borrowed_on: date | None = None
+    publisher: str | None = None
+    # Apsolutni URL naslovnice (None kad stranica prikaže samo rezervnu sliku).
+    cover: str | None = None
 
     @property
     def renewable(self) -> bool:
@@ -64,9 +68,13 @@ class Loan:
         return {
             "title": self.title,
             "author": self.author,
+            "publisher": self.publisher,
+            "code": self.record_key,
+            "borrowed_on": self.borrowed_on.isoformat() if self.borrowed_on else None,
             "due_on": self.due_on.isoformat(),
             "days_left": self.days_until(today),
             "renewable": self.renewable,
+            "cover": self.cover,
         }
 
 
@@ -115,12 +123,16 @@ def parse_date(text: str) -> date | None:
         return None
 
 
-def parse_loans(html: str) -> list[Loan]:
-    """Izvuci posudbe sa stranice `page=citam`."""
+def parse_loans(html: str, base_url: str = "") -> list[Loan]:
+    """Izvuci posudbe sa stranice `page=citam`.
+
+    `base_url` je URL same stranice; koristi se za razrješavanje relativnih putanja
+    naslovnica (`img.booker`), isto kao kod akcije obrasca za produženje.
+    """
     soup = BeautifulSoup(html, "html.parser")
     loans: list[Loan] = []
     for block in soup.find_all("div", class_=_BLOCK_CLASS):
-        loan = _block_to_loan(block)
+        loan = _block_to_loan(block, base_url)
         if loan is not None:
             loans.append(loan)
     return loans
@@ -214,7 +226,7 @@ def with_renew_ids(loans: list[Loan], page: RenewPage | None) -> list[Loan]:
     return linked
 
 
-def _block_to_loan(block: Tag) -> Loan | None:
+def _block_to_loan(block: Tag, base_url: str = "") -> Loan | None:
     """Jedan blok posudbe -> Loan, ili None ako blok nije posudba."""
     due_element = _label_element(block, _DUE_LABEL_RE)
     if due_element is None:
@@ -233,12 +245,42 @@ def _block_to_loan(block: Tag) -> Loan | None:
     author_element = block.select_one("span.anaso")
     author = _text(author_element) if author_element else None
 
+    publisher_element = block.select_one("span.txx11")
+    publisher = _text(publisher_element).rstrip(" -") or None if publisher_element else None
+
+    borrowed_element = _borrowed_element(block)
+    borrowed_on = parse_date(_text(borrowed_element)) if borrowed_element else None
+
     return Loan(
         title=title,
         author=author or None,
         due_on=due_on,
         record_key=_record_key(title_element),
+        borrowed_on=borrowed_on,
+        publisher=publisher,
+        cover=_cover_url(block, base_url),
     )
+
+
+def _borrowed_element(block: Tag) -> Tag | None:
+    """Datum posudbe: `span.txx12` s datumom koji nije element roka vraćanja."""
+    for element in block.select("span.txx12"):
+        text = _text(element)
+        if _DUE_LABEL_RE.search(text):
+            continue
+        if parse_date(text) is not None:
+            return element
+    return None
+
+
+def _cover_url(block: Tag, base_url: str) -> str | None:
+    """Apsolutni URL naslovnice, ili None kad je prikazana rezervna slika."""
+    element = block.find("img", class_="booker")
+    src = (element.get("src") or "").strip() if element else ""
+    # 000.png je rezervna slika koju stranica prikaže kad naslovnice nema.
+    if not src or src.endswith("000.png"):
+        return None
+    return urljoin(base_url, src) if base_url else src
 
 
 def _label_element(block: Tag, pattern: re.Pattern[str]) -> Tag | None:

@@ -26,7 +26,8 @@ CITAM_HTML = """
   <div class="col-sm-12">
     <div class="row">
       <div class="col-sm-2"><div id="gradie">
-        <a href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10001"><img src="1.png"></a>
+        <a href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10001">
+          <img class="img-fluid booker" src="1.png"></a>
       </div></div>
       <div class="col-sm-10">
         <div class="row">
@@ -46,7 +47,8 @@ CITAM_HTML = """
   <div class="col-sm-12">
     <div class="row">
       <div class="col-sm-2"><div id="gradie">
-        <a href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10002"><img src="2.png"></a>
+        <a href="https://library.foi.hr/lib/knjiga.php?B=11&amp;sqlx=D10002">
+          <img class="img-fluid booker" src="2.png"></a>
       </div></div>
       <div class="col-sm-10">
         <div class="row">
@@ -156,6 +158,28 @@ class ParseLoansTest(unittest.TestCase):
 
     def test_empty_page(self) -> None:
         self.assertEqual(parser.parse_loans("<html><body>Nema posudbi</body></html>"), [])
+
+    def test_extra_fields(self) -> None:
+        """Datum posudbe, izdavač i naslovnica (kako piše u HTML-u bez base_url)."""
+        loan = self.loans[0]
+        self.assertEqual(loan.borrowed_on, date(2026, 10, 10))
+        self.assertEqual(loan.publisher, "Zagreb : Nakladnik, 2017.")
+        self.assertEqual(loan.cover, "1.png")
+
+    def test_cover_is_resolved_against_page_url(self) -> None:
+        loans = parser.parse_loans(CITAM_HTML, PAGE_URL)
+        self.assertEqual(loans[0].cover, "https://library.foi.hr/lib/1.png")
+
+    def test_placeholder_cover_is_ignored(self) -> None:
+        html = CITAM_HTML.replace('src="1.png"', 'src="000.png"')
+        self.assertIsNone(parser.parse_loans(html, PAGE_URL)[0].cover)
+
+    def test_as_dict_has_web_fields(self) -> None:
+        data = self.loans[0].as_dict(date(2026, 10, 27))
+        self.assertEqual(data["code"], "D10001")
+        self.assertEqual(data["borrowed_on"], "2026-10-10")
+        self.assertEqual(data["publisher"], "Zagreb : Nakladnik, 2017.")
+        self.assertEqual(data["days_left"], 5)
 
 
 class ParseRenewPageTest(unittest.TestCase):

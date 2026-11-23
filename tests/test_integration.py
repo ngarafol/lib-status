@@ -10,12 +10,14 @@ from datetime import date, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
 from homeassistant.config_entries import SOURCE_RECONFIGURE, SOURCE_USER, ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry
+from homeassistant.setup import async_setup_component
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -126,16 +128,24 @@ async def test_entities_are_created(hass: HomeAssistant) -> None:
         {
             "title": "Mali princ",
             "author": "Saint-Exupéry",
+            "publisher": None,
+            "code": "D1",
+            "borrowed_on": None,
             "due_on": (_today() + timedelta(days=5)).isoformat(),
             "days_left": 5,
             "renewable": True,
+            "cover": None,
         },
         {
             "title": "Dnevnik",
             "author": "Kušec",
+            "publisher": None,
+            "code": "D2",
+            "borrowed_on": None,
             "due_on": (_today() + timedelta(days=2)).isoformat(),
             "days_left": 2,
             "renewable": False,
+            "cover": None,
         },
     ]
 
@@ -192,6 +202,18 @@ async def test_renew_button(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
 
     assert renew.await_count == 1
+
+
+async def test_card_is_served_and_loaded(hass: HomeAssistant) -> None:
+    """Integracija sama posluži Lovelace karticu i učita ju u frontend."""
+    from custom_components.knjiznica_metelgrad import DATA_CARD
+
+    await async_setup_component(hass, "http", {})
+    with patch(FETCH, new=AsyncMock(return_value=_loans())):
+        await _setup_entry(hass)
+
+    assert hass.data.get(DATA_CARD)
+    assert any("knjiznica-metelgrad-card.js" in url for url in hass.data[DATA_EXTRA_MODULE_URL])
 
 
 async def test_legacy_per_book_entities_are_cleaned(hass: HomeAssistant) -> None:
